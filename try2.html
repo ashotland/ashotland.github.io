@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>משחק - חציבה ובנייה</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+            background: #87ceeb;
+            border: 2px solid black;
+        }
+        .hearts {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 20px;
+            color: red;
+        }
+        #shop {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            z-index: 10;
+            border-radius: 10px;
+        }
+        #shop button {
+            margin: 5px;
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 200px;
+        }
+        #shop button:hover {
+            background-color: #367c39;
+        }
+        #shop h2 {
+            margin-bottom: 15px;
+            font-size: 24px;
+        }
+        #info {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: white;
+            font-size: 16px;
+            padding: 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="hearts">❤️❤️❤️</div>
+    <canvas id="gameCanvas" width="800" height="400"></canvas>
+    <div id="shop">
+        <h2>חנות</h2>
+        <button id="buySpeed">מהירות +1 (50$)</button>
+        <button id="buyRange">טווח +1 (50$)</button>
+        <button id="buyMoney">כסף +1 (50$)</button>
+        <button id="buyHealth">חיים +1 (100$)</button>
+        <button id="shopContinue">המשך</button>
+    </div>
+    <div id="info">
+        שלב: <span id="level">1</span><br>
+        הריגות: <span id="kills">0</span><br>
+        כסף: <span id="money">0</span><br>
+        אתגר: <span id="challenge">הרוג 10 אויבים כדי לעבור שלב!</span>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const heartsDisplay = document.querySelector(".hearts");
+        const shopElement = document.getElementById("shop");
+        const buySpeedButton = document.getElementById("buySpeed");
+        const buyRangeButton = document.getElementById("buyRange");
+        const buyMoneyButton = document.getElementById("buyMoney");
+        const buyHealthButton = document.getElementById("buyHealth");
+        const shopContinueButton = document.getElementById("shopContinue");
+        const levelDisplay = document.getElementById("level");
+        const killsDisplay = document.getElementById("kills");
+        const moneyDisplay = document.getElementById("money");
+        const challengeDisplay = document.getElementById("challenge");
+        const infoDisplay = document.getElementById("info");
+
+        let level = 1;
+        let kills = 0;
+        let weaponDamage = 50;
+        let money = 0;
+        let enemySpawnInterval = 1000;
+        let enemiesToKillForLevel = 10;
+        let playerSpeed = 5;
+        let attackRange = 50;
+        let moneyPerKill = 5;
+        let gameActive = true;
+        let spawnEnemiesEnabled = true;
+
+        const player = {
+            x: 50,
+            y: 300,
+            width: 30,
+            height: 30,
+            color: "green",
+            speed: playerSpeed,
+            hearts: 3,
+            inventory: []
+        };
+
+        const hills = [];
+        for (let i = 0; i < 10; i++) {
+            hills.push({
+                x: Math.random() * 750,
+                y: Math.random() * 350,
+                width: 50,
+                height: 50,
+                color: "brown",
+                resources: 5
+            });
+        }
+
+        const enemies = [];
+        const projectiles = [];
+        const builtBlocks = [];
+        let lastFortifyTime = 0;
+        const fortifyInterval = 5000;
+
+        function spawnEnemies() {
+            for (let i = 0; i < level * 2; i++) {
+                enemies.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    width: 30,
+                    height: 30,
+                    color: Math.random() > 0.5 ? "yellow" : "red",
+                    dx: Math.random() > 0.5 ? 1 : -1,
+                    dy: Math.random() > 0.5 ? 1 : -1,
+                    health: 10 + level * 2,
+                    isFortified: false,
+                    fortifyColor: "black"
+                });
+            }
+        }
+        spawnEnemies();
+
+        function reinforceEnemies() {
+            enemies.forEach(enemy => {
+                enemy.health += 2;
+                enemy.dx *= 1.1;
+                enemy.dy *= 1.1;
+            });
+        }
+
+        function spawnNewEnemy() {
+            if (spawnEnemiesEnabled) {
+                const enemyColor = Math.random() > 0.5 ? "yellow" : "red";
+                const newEnemy = {
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    width: 30,
+                    height: 30,
+                    color: enemyColor,
+                    dx: Math.random() > 0.5 ? 1 : -1,
+                    dy: Math.random() > 0.5 ? 1 : -1,
+                    health: 10 + level * 2
+                };
+                enemies.push(newEnemy);
+            }
+        }
+        setInterval(() => {
+            reinforceEnemies();
+            spawnNewEnemy();
+        }, 4000);
+
+        const keys = {};
+        window.addEventListener("keydown", (e) => {
+            keys[e.key.toLowerCase()] = true;
+            if (e.key === 'Enter') {
+                resetGame();
+            }
+            if (e.key === '0') {
+                if (!gameActive) {
+                    nextLevel();
+                }
+            }
+        });
+        window.addEventListener("keyup", (e) => {
+            keys[e.key.toLowerCase()] = false;
+        });
+
+        function checkCollision(obj1, obj2) {
+            return obj1.x < obj2.x + obj2.width &&
+                   obj1.x + obj1.width > obj2.x &&
+                   obj1.y < obj2.y + obj2.height &&
+                   obj1.y + obj1.height > obj2.y;
+        }
+
+        function movePlayer() {
+            let newX = player.x;
+            let newY = player.y;
+
+            if (keys["arrowright"]) newX += player.speed;
+            if (keys["arrowleft"])  newX -= player.speed;
+            if (keys["arrowup"])      newY -= player.speed;
+            if (keys["arrowdown"])    newY += player.speed;
+
+            let collision = false;
+            for (let hill of hills) {
+                if (checkCollision({...player, x: newX, y: newY}, hill)) {
+                    collision = true;
+                    break;
+                }
+            }
+            if (!collision) {
+                for (let block of builtBlocks) {
+                    if (checkCollision({...player, x: newX, y: newY}, block)) {
+                        collision = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!collision) {
+                player.x = newX;
+                player.y = newY;
+            }
+
+            if (player.x < 0) player.x = 0;
+            if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
+            if (player.y < 0) player.y = 0;
+            if (player.y + player.height > canvas.height) player.y = canvas.height - player.height;
+        }
+
+        function mineHills() {
+            hills.forEach((hill, index) => {
+                if (
+                    player.x < hill.x + hill.width &&
+                    player.x + player.width > hill.x &&
+                    player.y < hill.y + hill.height &&
+                    player.y + player.height > hill.y &&
+                    keys["g"]
+                ) {
+                    player.inventory.push({ color: hill.color });
+                    player.inventory.push({ color: hill.color });
+                    hill.resources--;
+                    if (hill.resources <= 0) {
+                        hills.splice(index, 1);
+                        player.inventory.push({ color: hill.color });
+                        player.inventory.push({ color: hill.color });
+                    }
+                }
+            });
+        }
+
+        function placeBlock() {
+            if (keys[" "] && player.inventory.length > 0) {
+                const block = player.inventory.pop();
+                const newBlock = {
+                    x: player.x + 40,
+                    y: player.y,
+                    width: 30,
+                    height: 30,
+                    color: block.color
+                };
+
+                let collision = false;
+                for (let builtBlock of builtBlocks) {
+                    if (checkCollision(newBlock, builtBlock)) {
+                        collision = true;
+                        break;
+                    }
+                }
+                for (let hill of hills) {
+                    if (checkCollision(newBlock, hill)) {
+                        collision = true;
+                        break;
+                    }
+                }
+
+                if (!collision) {
+                    builtBlocks.push(newBlock);
+                }
+            }
+        }
+
+        function moveEnemies() {
+            enemies.forEach(enemy => {
+                let newX = enemy.x + enemy.dx;
+                let newY = enemy.y + enemy.dy;
+
+                let collision = false;
+                for (let hill of hills) {
+                    if (checkCollision({...enemy, x: newX, y: newY}, hill)) {
+                        collision = true;
+                        break;
+                    }
+                }
+                if (!collision) {
+                    for (let block of builtBlocks) {
+                        if (checkCollision({...enemy, x: newX, y: newY}, block)) {
+                            collision = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!collision) {
+                    enemy.x = newX;
+                    enemy.y = newY;
+                }
+                else{
+                    enemy.dx *= -1;
+                    enemy.dy *= -1;
+                }
+
+                if (enemy.x <= 0 || enemy.x + enemy.width >= canvas.width) enemy.dx *= -1;
+                if (enemy.y <= 0 || enemy.y + enemy.height >= canvas.height) enemy.dy *= -1;
+
+                if (enemy.color === "yellow" && Math.random() < 0.01) {
+                    let projectileCollision = false;
+                    const newProjectileX = enemy.x - 2;
+                    for (let hill of hills)
+                    {
+                        if(checkCollision({x: newProjectileX, y: enemy.y, width: 5, height: 5}, hill))
+                        {
+                            projectileCollision = true;
+                            break;
+                        }
+                    }
+                    if (!projectileCollision)
+                    {
+                        for (let block of builtBlocks)
+                        {
+                            if(checkCollision({x: newProjectileX, y: enemy.y, width: 5, height: 5}, block))
+                            {
+                                projectileCollision = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!projectileCollision)
+                    {
+                        projectiles.push({ x: enemy.x, y: enemy.y, dx: -2, dy: 0 });
+                    }
+                }
+            });
+        }
+
+        function moveProjectiles() {
+            projectiles.forEach((projectile, index) => {
+                projectile.x += projectile.dx;
+
+                let collision = false;
+                for (let hill of hills) {
+                    if (checkCollision(projectile, hill)) {
+                        collision = true;
+                        break;
+                    }
+                }
+                if (!collision) {
+                    for (let block of builtBlocks) {
+                        if (checkCollision(projectile, block)) {
+                            collision = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (collision) {
+                    projectiles.splice(index, 1);
+                    return;
+                }
+
+                if (projectile.x < 0 || projectile.x > canvas.width) {
+                    projectiles.splice(index, 1);
+                }
+
+                if (
+                    projectile.x < player.x + player.width &&
+                    projectile.x + 5 > player.x &&
+                    projectile.y < player.y + player.height &&
+                    projectile.y + 5 > player.y
+                ) {
+                    player.hearts--;
+                    projectiles.splice(index, 1);
+                    if (player.hearts <= 0) {
+                        alert("Game Over!");
+                        player.hearts = 0;
+                    }
+                }
+            });
+        }
+
+        function attackEnemies() {
+            if (keys["d"]) {
+                let targetIndex = -1;
+                let closestDistance = Infinity;
+                enemies.forEach((enemy, index) => {
+                    const distance = Math.hypot(player.x - enemy.x, player.y - enemy.y);
+                    if (distance < closestDistance && distance < attackRange) {
+                        closestDistance = distance;
+                        targetIndex = index;
+                    }
+                });
+
+                if (targetIndex !== -1) {
+                    enemies.splice(targetIndex, 1);
+                    kills++;
+                    money += moneyPerKill;
+                    console.log("Enemy killed!");
+                }
+
+                for (let i = builtBlocks.length - 1; i >= 0; i--) {
+                    const block = builtBlocks[i];
+                    const distance = Math.hypot(player.x - block.x, player.y - block.y);
+                    if (distance < attackRange) {
+                        builtBlocks.splice(i, 1);
+                        console.log("Block removed!");
+                        break;
+                    }
+                }
+
+                hills.forEach((hill, index) => {
+                    const distance = Math.hypot(player.x - hill.x, player.y - hill.y);
+                    if (distance < attackRange) {
+                        player.inventory.push({ color: hill.color });
+                        player.inventory.push({ color: hill.color });
+                        hill.resources--;
+                        if (hill.resources <= 0) {
+                            hills.splice(index, 1);
+                            player.inventory.push({ color: hill.color });
+                            player.inventory.push({ color: hill.color });
+                        }
+                    }
+                });
+            }
+        }
+
+        function advanceLevel() {
+            level++;
+            levelDisplay.textContent = level;
+            attackEnemies()
+            attackEnemies()
+            attackEnemies()
+            attackEnemies()
+            attackEnemies()
+            attackEnemies()
+            attackEnemies()
+            attackEnemies()
+            kills = 0;
+            killsDisplay.textContent = kills;
+            enemiesToKillForLevel += 5;
+            challengeDisplay.textContent = `הרוג ${enemiesToKillForLevel} אויבים כדי לעבור שלב!`;
+            enemySpawnInterval = Math.max(100, enemySpawnInterval - 100);
+            gameActive = true;
+            shopElement.style.display = "none";
+
+            player.x = 50;
+            player.y = 300;
+            player.hearts = 3;
+            hills.splice(0, hills.length);
+            for (let i = 0; i < 10; i++) {
+hills.push({
+                    x: Math.random() * 750,
+                    y: Math.random() * 350,
+                    width: 50,
+                    height: 50,
+                    color: "brown",
+                    resources: 5
+                });
+            }
+            playerSpeed = playerSpeed;
+            attackRange = attackRange;
+            moneyPerKill = moneyPerKill;
+            gameLoop()
+        }
+
+        function resetGame() {
+            level = 1;
+            kills = 0;
+            weaponDamage = 50;
+            money = 0;
+            player.x = 50;
+            player.y = 300;
+            player.hearts = 3;
+            player.inventory = [];
+            hills.splice(0, hills.length);
+            for (let i = 0; i < 10; i++) {
+                hills.push({
+                    x: Math.random() * 750,
+                    y: Math.random() * 350,
+                    width: 50,
+                    height: 50,
+                    color: "brown",
+                    resources: 5
+                });
+            }
+            enemies.splice(0, enemies.length);
+            spawnEnemies();
+            projectiles.splice(0, projectiles.length);
+            builtBlocks.splice(0, builtBlocks.length);
+            enemySpawnInterval = 1000;
+            enemiesToKillForLevel = 10;
+            playerSpeed = 5;
+            attackRange = 50;
+            moneyPerKill = 5;
+            gameActive = true;
+            shopElement.style.display = "none";
+            levelDisplay.textContent = level;
+            killsDisplay.textContent = kills;
+            moneyDisplay.textContent = money;
+            challengeDisplay.textContent = `הרוג ${enemiesToKillForLevel} אויבים כדי לעבור שלב!`;
+            gameLoop();
+        }
+
+        function drawChallenges() {
+            ctx.fillStyle = "white";
+            ctx.font = "16px Arial";
+            ctx.fillText(challengeDisplay.textContent, 10, 100);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+
+            hills.forEach(hill => {
+                ctx.fillStyle = hill.color;
+                ctx.fillRect(hill.x, hill.y, hill.width, hill.height);
+            });
+
+            builtBlocks.forEach(block => {
+                ctx.fillStyle = block.color;
+                ctx.fillRect(block.x, block.y, block.width, block.height);
+            });
+
+            enemies.forEach(enemy => {
+                ctx.fillStyle = enemy.color;
+                ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+            });
+
+            projectiles.forEach(projectile => {
+                ctx.fillStyle = "black";
+                ctx.fillRect(projectile.x, projectile.y, 5, 5);
+            });
+
+            drawChallenges();
+
+            ctx.fillStyle = "white";
+            ctx.font = "20px Arial";
+            levelDisplay.textContent = level;
+            killsDisplay.textContent = kills;
+            moneyDisplay.textContent = `${money} $`;
+            heartsDisplay.textContent = '❤️'.repeat(player.hearts);
+
+            if (keys["d"]) {
+                ctx.beginPath();
+                ctx.arc(player.x + player.width / 2, player.y + player.height / 2, attackRange, 0, 2 * Math.PI);
+                ctx.strokeStyle = "green";
+                ctx.stroke();
+            }
+        }
+
+        function gameLoop() {
+            if (gameActive) {
+                movePlayer();
+                mineHills();
+                placeBlock();
+                moveEnemies();
+                moveProjectiles();
+                attackEnemies();
+                draw();
+
+                enemies.forEach(enemy => {
+                    if (enemy.color === "red" && checkCollision(player, enemy)) {
+                        player.hearts--;
+                        enemies.splice(enemies.indexOf(enemy), 1);
+                        if (player.hearts <= 0) {
+                            alert("Game Over!");
+                            resetGame();
+                        }
+                    }
+                });
+
+                if (kills >= enemiesToKillForLevel) {
+                    gameActive = false;
+                    spawnEnemiesEnabled = false;
+                    shopElement.style.display = "flex";
+                }
+                if (player.hearts > 0) {
+                    requestAnimationFrame(gameLoop);
+                } else {
+                    alert("Game Over!");
+                }
+            }
+            else{
+                draw();
+            }
+        }
+
+        buySpeedButton.addEventListener("click", () => {
+            if (money >= 50) {
+                money -= 50;
+                player.speed += 1;
+                moneyDisplay.textContent = `${money} $`;
+                playerSpeed = player.speed;
+            }
+        });
+
+        buyRangeButton.addEventListener("click", () => {
+            if (money >= 50) {
+                money -= 50;
+                attackRange += 10;
+                moneyDisplay.textContent = `${money} $`;
+                attackRange = attackRange;
+            }
+        });
+
+        buyMoneyButton.addEventListener("click", () => {
+            if (money >= 50) {
+                money -= 50;
+                moneyPerKill += 1;
+                moneyDisplay.textContent = `${money} $`;
+                moneyPerKill = moneyPerKill;
+            }
+        });
+
+        buyHealthButton.addEventListener("click", () => {
+            if (money >= 100) {
+                money -= 100;
+                player.hearts += 1;
+                moneyDisplay.textContent = `${money} $`;
+                heartsDisplay.textContent = '❤️'.repeat(player.hearts);
+            }
+        });
+
+        shopContinueButton.addEventListener("click", () => {
+            if (!gameActive) {
+                spawnEnemiesEnabled = true;
+                advanceLevel();
+            }
+        });
+
+        setInterval(spawnNewEnemy, enemySpawnInterval);
+        gameLoop();
+    </script>
+</body>
+</html>
