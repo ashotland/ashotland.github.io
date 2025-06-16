@@ -13,7 +13,6 @@
         canvas {
             display: block;
             background: #87ceeb;
-            border: 2px solid black;
         }
         .hearts {
             position: absolute;
@@ -67,7 +66,7 @@
 </head>
 <body>
     <div class="hearts">❤️❤️❤️</div>
-    <canvas id="gameCanvas" width="800" height="400"></canvas>
+    <canvas id="gameCanvas"></canvas>
     <div id="shop">
         <h2>חנות</h2>
         <button id="buySpeed">מהירות +1 (50$)</button>
@@ -86,6 +85,14 @@
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
+
+        function setCanvasSize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        setCanvasSize();
+        window.addEventListener("resize", setCanvasSize);
+
         const heartsDisplay = document.querySelector(".hearts");
         const shopElement = document.getElementById("shop");
         const buySpeedButton = document.getElementById("buySpeed");
@@ -113,7 +120,7 @@
 
         const player = {
             x: 50,
-            y: 300,
+            y: canvas.height - 100,
             width: 30,
             height: 30,
             color: "green",
@@ -125,8 +132,8 @@
         const hills = [];
         for (let i = 0; i < 10; i++) {
             hills.push({
-                x: Math.random() * 750,
-                y: Math.random() * 350,
+                x: Math.random() * (canvas.width - 50),
+                y: Math.random() * (canvas.height - 50),
                 width: 50,
                 height: 50,
                 color: "brown",
@@ -471,13 +478,13 @@
             shopElement.style.display = "none";
 
             player.x = 50;
-            player.y = 300;
+            player.y = canvas.height - 100;
             player.hearts = 3;
             hills.splice(0, hills.length);
             for (let i = 0; i < 10; i++) {
-hills.push({
-                    x: Math.random() * 750,
-                    y: Math.random() * 350,
+                hills.push({
+                    x: Math.random() * (canvas.width - 50),
+                    y: Math.random() * (canvas.height - 50),
                     width: 50,
                     height: 50,
                     color: "brown",
@@ -496,14 +503,14 @@ hills.push({
             weaponDamage = 50;
             money = 0;
             player.x = 50;
-            player.y = 300;
+            player.y = canvas.height - 100;
             player.hearts = 3;
             player.inventory = [];
             hills.splice(0, hills.length);
             for (let i = 0; i < 10; i++) {
                 hills.push({
-                    x: Math.random() * 750,
-                    y: Math.random() * 350,
+                    x: Math.random() * (canvas.width - 50),
+                    y: Math.random() * (canvas.height - 50),
                     width: 50,
                     height: 50,
                     color: "brown",
