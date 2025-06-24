@@ -5,6 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EnemyBlock1 - by Alon S.</title>
     <link rel="icon" href="favicon.png" type="image/x-icon">
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'G-BXKSQPZ851'); // <-- ⚠️ REPLACE WITH YOUR MEASUREMENT ID
+    </script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -432,6 +441,16 @@
         let attackStartTime = 0;
         let attackEnded = false;
         let attackDuration = 3000;  // 3 seconds of attack (upgradeable)
+
+        // --- Google Analytics Event Tracking ---
+        function trackEvent(eventName, eventParams = {}) {
+            if (typeof gtag === 'function') {
+                gtag('event', eventName, eventParams);
+            } else {
+                console.log(`GA Event (gtag not found): ${eventName}`, eventParams);
+            }
+        }
+        // ------------------------------------
 
         const player = {
             x: 50,
@@ -901,6 +920,7 @@
                             kills += 5;  // Boss gives 5 kills
                             money += 10; // Boss gives 10 money
                             bossKilled = true;
+                            trackEvent('boss_defeated', { level: level }); // GA Event
                         }
                     } else {
                         enemies.splice(targetIndex, 1);
@@ -938,6 +958,7 @@
         function advanceLevel() {
             level++;
             levelDisplay.textContent = level;
+            trackEvent('level_complete', { level: level }); // GA Event
             
             // Check for victory condition after completing level 20
             if (level > 20) {
@@ -945,6 +966,7 @@
                 spawnEnemiesEnabled = false;
                 shopElement.style.display = "none";
                 victoryElement.style.display = "flex";
+                trackEvent('victory'); // GA Event
                 return;
             }
             
@@ -1008,6 +1030,7 @@
         function showGameOver(reason) {
             gameActive = false;
             spawnEnemiesEnabled = false;
+            trackEvent('game_over', { level: level, reason: reason }); // GA Event
             
             // Update final stats
             finalLevelDisplay.textContent = level;
@@ -1277,6 +1300,7 @@
         buySpeedButton.addEventListener("click", () => {
             if (money >= speedPrice) {
                 money -= speedPrice;
+                trackEvent('purchase', { item_name: 'speed_upgrade', value: speedPrice, currency: 'USD' }); // GA Event
                 speedPrice += 5;  // Increase price for next purchase
                 player.speed += 1;
                 moneyDisplay.textContent = `${money} $`;
@@ -1288,6 +1312,7 @@
         buyRangeButton.addEventListener("click", () => {
             if (money >= rangePrice) {
                 money -= rangePrice;
+                trackEvent('purchase', { item_name: 'range_upgrade', value: rangePrice, currency: 'USD' }); // GA Event
                 rangePrice += 5;  // Increase price for next purchase
                 attackRange += 10;
                 moneyDisplay.textContent = `${money} $`;
@@ -1299,6 +1324,7 @@
         buyMoneyButton.addEventListener("click", () => {
             if (money >= moneyPrice) {
                 money -= moneyPrice;
+                trackEvent('purchase', { item_name: 'money_per_kill_upgrade', value: moneyPrice, currency: 'USD' }); // GA Event
                 moneyPrice += 5;  // Increase price for next purchase
                 moneyPerKill += 1;
                 moneyDisplay.textContent = `${money} $`;
@@ -1310,6 +1336,7 @@
         buyHealthButton.addEventListener("click", () => {
             if (money >= healthPrice) {
                 money -= healthPrice;
+                trackEvent('purchase', { item_name: 'health_upgrade', value: healthPrice, currency: 'USD' }); // GA Event
                 healthPrice += 5;  // Increase price for next purchase
                 maxHearts += 1;  // Increase max hearts permanently
                 player.hearts = maxHearts;  // Set current hearts to new max
@@ -1322,6 +1349,7 @@
         buyTimeButton.addEventListener("click", () => {
             if (money >= timePrice) {
                 money -= timePrice;
+                trackEvent('purchase', { item_name: 'time_upgrade', value: timePrice, currency: 'USD' }); // GA Event
                 timePrice += 5;  // Increase price for next purchase
                 // Permanently increase base level time for all future levels
                 baseLevelTime += 10;
@@ -1333,6 +1361,7 @@
         buyAttackDurationButton.addEventListener("click", () => {
             if (money >= attackDurationPrice) {
                 money -= attackDurationPrice;
+                trackEvent('purchase', { item_name: 'attack_duration_upgrade', value: attackDurationPrice, currency: 'USD' }); // GA Event
                 attackDurationPrice += 5;  // Increase price for next purchase
                 // Permanently increase attack duration by 1 second
                 attackDuration += 1000;
@@ -1366,6 +1395,7 @@
             gameActive = true;
             spawnEnemiesEnabled = true;
             updateShopPrices();  // Set initial shop prices
+            trackEvent('game_start'); // GA Event
             setInterval(spawnNewEnemy, enemySpawnInterval);
             gameLoop();
         });
