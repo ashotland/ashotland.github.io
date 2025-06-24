@@ -4,11 +4,96 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EnemyBlock1 - by Alon S.</title>
+    <link rel="icon" href="favicon.png" type="image/x-icon">
     <style>
         body {
             font-family: Arial, sans-serif;
             margin: 0;
             overflow: hidden;
+        }
+        #welcomeScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .welcome-content {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 50px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            animation: welcomeFadeIn 1s ease-out;
+        }
+        @keyframes welcomeFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .welcome-icon {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+            animation: iconFloat 3s ease-in-out infinite;
+        }
+        @keyframes iconFloat {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        .welcome-content h1 {
+            font-size: 48px;
+            color: #333;
+            margin: 20px 0 10px 0;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .subtitle {
+            font-size: 18px;
+            color: #666;
+            margin-bottom: 30px;
+            font-style: italic;
+        }
+        .game-instructions {
+            background: rgba(102, 126, 234, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 30px 0;
+            text-align: right;
+            direction: rtl;
+        }
+        .game-instructions p {
+            margin: 10px 0;
+            font-size: 16px;
+            color: #444;
+        }
+        .start-btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 24px;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+        }
+        .start-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 25px rgba(102, 126, 234, 0.4);
+        }
+        .start-btn:active {
+            transform: translateY(-1px);
         }
         canvas {
             display: block;
@@ -51,6 +136,113 @@
         #shop h2 {
             margin-bottom: 15px;
             font-size: 24px;
+        }
+        #victory {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.95);
+            color: white;
+            padding: 40px;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            z-index: 15;
+            border-radius: 15px;
+            border: 3px solid gold;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+        }
+        #victory h1 {
+            margin-bottom: 20px;
+            font-size: 48px;
+            color: gold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+        @keyframes glow {
+            from {
+                text-shadow: 2px 2px 4px rgba(0,0,0,0.8), 0 0 10px gold;
+            }
+            to {
+                text-shadow: 2px 2px 4px rgba(0,0,0,0.8), 0 0 20px gold, 0 0 30px gold;
+            }
+        }
+        #victory p {
+            margin-bottom: 25px;
+            font-size: 20px;
+            text-align: center;
+        }
+        #victory button {
+            padding: 15px 30px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        #victory button:hover {
+            background-color: #367c39;
+            transform: scale(1.05);
+        }
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.95);
+            color: white;
+            padding: 40px;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            z-index: 15;
+            border-radius: 15px;
+            border: 3px solid #ff4444;
+            box-shadow: 0 0 20px rgba(255, 68, 68, 0.5);
+        }
+        #gameOver h1 {
+            margin-bottom: 20px;
+            font-size: 48px;
+            color: #ff4444;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            animation: gameOverGlow 2s ease-in-out infinite alternate;
+        }
+        @keyframes gameOverGlow {
+            from {
+                text-shadow: 2px 2px 4px rgba(0,0,0,0.8), 0 0 10px #ff4444;
+            }
+            to {
+                text-shadow: 2px 2px 4px rgba(0,0,0,0.8), 0 0 20px #ff4444, 0 0 30px #ff4444;
+            }
+        }
+        #gameOverStats {
+            margin-bottom: 25px;
+            text-align: center;
+        }
+        #gameOverStats p {
+            margin: 10px 0;
+            font-size: 18px;
+        }
+        #gameOverStats span {
+            color: #ffdd44;
+            font-weight: bold;
+        }
+        #gameOver button {
+            padding: 15px 30px;
+            background-color: #ff4444;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        #gameOver button:hover {
+            background-color: #cc3333;
+            transform: scale(1.05);
         }
         #info {
             position: absolute;
@@ -114,6 +306,20 @@
     </style>
 </head>
 <body>
+    <div id="welcomeScreen">
+        <div class="welcome-content">
+            <img src="favicon.png" alt="Game Icon" class="welcome-icon">
+            <h1>EnemyBlock1</h1>
+            <p class="subtitle">by Alon S.</p>
+            <div class="game-instructions">
+                <p>🎯 הרוג אויבים כדי לעבור שלבים</p>
+                <p>⚔️ הרוג בוסים בשלבים 5, 10, 15, 20</p>
+                <p>⏰ יש לך 70 שניות לכל שלב</p>
+                <p>🛒 שדרג את היכולות שלך בחנות</p>
+            </div>
+            <button id="startGame" class="start-btn">התחל לשחק</button>
+        </div>
+    </div>
     <div class="hearts">❤️❤️❤️</div>
     <canvas id="gameCanvas"></canvas>
     <div id="shop">
@@ -122,12 +328,29 @@
         <button id="buyRange">טווח +1 (50$)</button>
         <button id="buyMoney">כסף +1 (50$)</button>
         <button id="buyHealth">חיים +1 (100$)</button>
+        <button id="buyTime">זמן +10 שניות (25$)</button>
+        <button id="buyAttackDuration">תקיפה +1 שנייה (50$)</button>
         <button id="shopContinue">המשך</button>
+    </div>
+    <div id="victory">
+        <h1>!ניצחון!</h1>
+        <p>השלמת את כל 20 השלבים!</p>
+        <button id="playAgain">שחק שוב</button>
+    </div>
+    <div id="gameOver">
+        <h1>!משחק נגמר</h1>
+        <div id="gameOverStats">
+            <p>הגעת לשלב: <span id="finalLevel">1</span></p>
+            <p>סה"כ הריגות: <span id="finalKills">0</span></p>
+            <p>סה"כ כסף שנצבר: <span id="finalMoney">0</span></p>
+        </div>
+        <button id="restartGame">התחל מחדש</button>
     </div>
     <div id="info">
         שלב: <span id="level">1</span><br>
         הריגות: <span id="kills">0</span><br>
         כסף: <span id="money">0</span><br>
+        זמן: <span id="timer">70</span><br>
         אתגר: <span id="challenge">הרוג 10 אויבים כדי לעבור שלב!</span>
     </div>
 
@@ -156,16 +379,28 @@
         setCanvasSize();
         window.addEventListener("resize", setCanvasSize);
 
+        const welcomeScreen = document.getElementById("welcomeScreen");
+        const startGameButton = document.getElementById("startGame");
         const heartsDisplay = document.querySelector(".hearts");
         const shopElement = document.getElementById("shop");
+        const victoryElement = document.getElementById("victory");
+        const gameOverElement = document.getElementById("gameOver");
+        const playAgainButton = document.getElementById("playAgain");
+        const restartGameButton = document.getElementById("restartGame");
+        const finalLevelDisplay = document.getElementById("finalLevel");
+        const finalKillsDisplay = document.getElementById("finalKills");
+        const finalMoneyDisplay = document.getElementById("finalMoney");
         const buySpeedButton = document.getElementById("buySpeed");
         const buyRangeButton = document.getElementById("buyRange");
         const buyMoneyButton = document.getElementById("buyMoney");
         const buyHealthButton = document.getElementById("buyHealth");
+        const buyTimeButton = document.getElementById("buyTime");
+        const buyAttackDurationButton = document.getElementById("buyAttackDuration");
         const shopContinueButton = document.getElementById("shopContinue");
         const levelDisplay = document.getElementById("level");
         const killsDisplay = document.getElementById("kills");
         const moneyDisplay = document.getElementById("money");
+        const timerDisplay = document.getElementById("timer");
         const challengeDisplay = document.getElementById("challenge");
         const infoDisplay = document.getElementById("info");
 
@@ -186,8 +421,17 @@
         let playerSpeed = 5;
         let attackRange = 50;
         let moneyPerKill = 5;
-        let gameActive = true;
-        let spawnEnemiesEnabled = true;
+        let gameActive = false;  // Start with game inactive
+        let spawnEnemiesEnabled = false;
+        let gameStarted = false;
+        let bossKilled = false;
+        let baseLevelTime = 70;  // Base time for each level (can be upgraded)
+        let levelTimeRemaining = 70;
+        let levelStartTime = Date.now();
+        let maxHearts = 3;  // Maximum hearts (can be upgraded in shop)
+        let attackStartTime = 0;
+        let attackEnded = false;
+        let attackDuration = 3000;  // 3 seconds of attack (upgradeable)
 
         const player = {
             x: 50,
@@ -219,6 +463,10 @@
         const fortifyInterval = 5000;
 
         function spawnEnemies() {
+            // Check if this is a boss level (5, 10, 15, 20)
+            const isBossLevel = level === 5 || level === 10 || level === 15 || level === 20;
+            
+            // Always spawn regular enemies
             for (let i = 0; i < level * 2; i++) {
                 enemies.push({
                     x: Math.random() * canvas.width,
@@ -230,8 +478,37 @@
                     dy: Math.random() > 0.5 ? 1 : -1,
                     health: 10 + level * 2,
                     isFortified: false,
-                    fortifyColor: "black"
+                    fortifyColor: "black",
+                    isBoss: false
                 });
+            }
+            
+            // Additionally spawn boss on boss levels
+            if (isBossLevel) {
+                // Determine boss lives based on level
+                let bossLives;
+                if (level === 5) bossLives = 2;
+                else if (level === 10) bossLives = 4;
+                else if (level === 15) bossLives = 7;
+                else if (level === 20) bossLives = 10;
+                
+                enemies.push({
+                    x: Math.random() * (canvas.width - 50),
+                    y: Math.random() * (canvas.height - 50),
+                    width: 45,  // Slightly larger
+                    height: 45,
+                    color: "orange",
+                    dx: Math.random() > 0.5 ? 0.8 : -0.8,  // Slower than normal enemies
+                    dy: Math.random() > 0.5 ? 0.8 : -0.8,
+                    health: 50 + level * 5,  // Much more health
+                    isBoss: true,
+                    lastShot: Date.now(),  // Initialize with current time
+                    lives: bossLives,
+                    maxLives: bossLives,
+                    hitFlash: 0,  // For hit animation
+                    protectionEndTime: 0  // When protection dome expires
+                });
+                bossKilled = false;
             }
         }
         spawnEnemies();
@@ -245,6 +522,7 @@
         }
 
         function spawnNewEnemy() {
+            // Continue spawning regular enemies even on boss levels
             if (spawnEnemiesEnabled) {
                 const enemyColor = Math.random() > 0.5 ? "yellow" : "red";
                 const newEnemy = {
@@ -255,7 +533,8 @@
                     color: enemyColor,
                     dx: Math.random() > 0.5 ? 1 : -1,
                     dy: Math.random() > 0.5 ? 1 : -1,
-                    health: 10 + level * 2
+                    health: 10 + level * 2,
+                    isBoss: false
                 };
                 enemies.push(newEnemy);
             }
@@ -436,7 +715,58 @@
                 if (enemy.x <= 0 || enemy.x + enemy.width >= canvas.width) enemy.dx *= -1;
                 if (enemy.y <= 0 || enemy.y + enemy.height >= canvas.height) enemy.dy *= -1;
 
-                if (enemy.color === "yellow" && Math.random() < 0.01) {
+                // Boss shooting in 8 directions
+                if (enemy.isBoss && Date.now() - enemy.lastShot > 1500) {
+                    enemy.lastShot = Date.now();
+                    // 8 directions: N, NE, E, SE, S, SW, W, NW
+                    const directions = [
+                        {dx: 0, dy: -2},   // North
+                        {dx: 1.4, dy: -1.4}, // Northeast
+                        {dx: 2, dy: 0},    // East
+                        {dx: 1.4, dy: 1.4},  // Southeast
+                        {dx: 0, dy: 2},    // South
+                        {dx: -1.4, dy: 1.4}, // Southwest
+                        {dx: -2, dy: 0},   // West
+                        {dx: -1.4, dy: -1.4} // Northwest
+                    ];
+                    
+                    directions.forEach(dir => {
+                        let projectileCollision = false;
+                        const newProjectilePos = {
+                            x: enemy.x + enemy.width/2 + dir.dx * 10,
+                            y: enemy.y + enemy.height/2 + dir.dy * 10,
+                            width: 5,
+                            height: 5
+                        };
+                        
+                        for (let hill of hills) {
+                            if(checkCollision(newProjectilePos, hill)) {
+                                projectileCollision = true;
+                                break;
+                            }
+                        }
+                        if (!projectileCollision) {
+                            for (let block of builtBlocks) {
+                                if(checkCollision(newProjectilePos, block)) {
+                                    projectileCollision = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (!projectileCollision) {
+                            projectiles.push({ 
+                                x: enemy.x + enemy.width/2, 
+                                y: enemy.y + enemy.height/2, 
+                                dx: dir.dx, 
+                                dy: dir.dy,
+                                width: 5,
+                                height: 5
+                            });
+                        }
+                    });
+                }
+                // Normal yellow enemy shooting
+                else if (enemy.color === "yellow" && Math.random() < 0.01) {
                     let projectileCollision = false;
                     const newProjectileX = enemy.x - 2;
                     for (let hill of hills)
@@ -460,7 +790,7 @@
                     }
                     if (!projectileCollision)
                     {
-                        projectiles.push({ x: enemy.x, y: enemy.y, dx: -2, dy: 0 });
+                        projectiles.push({ x: enemy.x, y: enemy.y, dx: -2, dy: 0, width: 5, height: 5 });
                     }
                 }
             });
@@ -469,6 +799,7 @@
         function moveProjectiles() {
             projectiles.forEach((projectile, index) => {
                 projectile.x += projectile.dx;
+                projectile.y += projectile.dy || 0;  // Handle dy for boss projectiles
 
                 let collision = false;
                 for (let hill of hills) {
@@ -491,15 +822,16 @@
                     return;
                 }
 
-                if (projectile.x < 0 || projectile.x > canvas.width) {
+                if (projectile.x < 0 || projectile.x > canvas.width || 
+                    projectile.y < 0 || projectile.y > canvas.height) {
                     projectiles.splice(index, 1);
                 }
 
                 if (
                     projectile.x < player.x + player.width &&
-                    projectile.x + 5 > player.x &&
+                    projectile.x + (projectile.width || 5) > player.x &&
                     projectile.y < player.y + player.height &&
-                    projectile.y + 5 > player.y
+                    projectile.y + (projectile.height || 5) > player.y
                 ) {
                     player.hearts--;
                     projectiles.splice(index, 1);
@@ -512,9 +844,36 @@
         }
 
         function attackEnemies() {
+            const currentTime = Date.now();
+            
+            // Check if attack button is pressed
             if (keys["d"]) {
-                let targetIndex = -1;
-                let closestDistance = Infinity;
+                // If attack just started, record start time
+                if (attackStartTime === 0 && !attackEnded) {
+                    attackStartTime = currentTime;
+                }
+                
+                // Check if attack duration has been exceeded
+                if (attackStartTime > 0 && currentTime - attackStartTime > attackDuration) {
+                    // Stop attacking after 3 seconds
+                    attackEnded = true;
+                    attackStartTime = 0;
+                }
+                
+                // Only attack if within attack duration and not ended
+                if (attackStartTime > 0 && !attackEnded) {
+                    performAttack();
+                }
+            } else {
+                // Reset when button is released
+                attackStartTime = 0;
+                attackEnded = false;
+            }
+        }
+
+        function performAttack() {
+            let targetIndex = -1;
+            let closestDistance = Infinity;
                 enemies.forEach((enemy, index) => {
                     const distance = Math.hypot(player.x - enemy.x, player.y - enemy.y);
                     if (distance < closestDistance && distance < attackRange) {
@@ -524,10 +883,31 @@
                 });
 
                 if (targetIndex !== -1) {
-                    enemies.splice(targetIndex, 1);
-                    kills++;
-                    money += moneyPerKill;
-                    console.log("Enemy killed!");
+                    const hitEnemy = enemies[targetIndex];
+                    
+                    if (hitEnemy.isBoss) {
+                        // Check if boss is currently protected
+                        if (Date.now() < hitEnemy.protectionEndTime) {
+                            // Boss is protected, cannot be hit
+                            return;
+                        }
+                        
+                        hitEnemy.lives--;
+                        hitEnemy.hitFlash = Date.now();  // Start hit flash animation
+                        hitEnemy.protectionEndTime = Date.now() + 3000;  // 3 seconds of protection
+                        
+                        if (hitEnemy.lives <= 0) {
+                            enemies.splice(targetIndex, 1);
+                            kills += 5;  // Boss gives 5 kills
+                            money += 10; // Boss gives 10 money
+                            bossKilled = true;
+                        }
+                    } else {
+                        enemies.splice(targetIndex, 1);
+                        kills++;
+                        money += moneyPerKill;
+                        console.log("Enemy killed!");
+                    }
                 }
 
                 for (let i = builtBlocks.length - 1; i >= 0; i--) {
@@ -553,12 +933,21 @@
                         }
                     }
                 });
-            }
         }
 
         function advanceLevel() {
             level++;
             levelDisplay.textContent = level;
+            
+            // Check for victory condition after completing level 20
+            if (level > 20) {
+                gameActive = false;
+                spawnEnemiesEnabled = false;
+                shopElement.style.display = "none";
+                victoryElement.style.display = "flex";
+                return;
+            }
+            
             attackEnemies()
             attackEnemies()
             attackEnemies()
@@ -570,14 +959,22 @@
             kills = 0;
             killsDisplay.textContent = kills;
             enemiesToKillForLevel += 5;
-            challengeDisplay.textContent = `הרוג ${enemiesToKillForLevel} אויבים כדי לעבור שלב!`;
+            
+            // Update challenge text based on level type
+            const nextIsBossLevel = level === 5 || level === 10 || level === 15 || level === 20;
+            if (nextIsBossLevel) {
+                challengeDisplay.textContent = "הרוג את הבוס כדי לעבור שלב!";
+            } else {
+                challengeDisplay.textContent = `הרוג ${enemiesToKillForLevel} אויבים כדי לעבור שלב!`;
+            }
+            
             enemySpawnInterval = Math.max(100, enemySpawnInterval - 100);
             gameActive = true;
             shopElement.style.display = "none";
 
             player.x = 50;
             player.y = canvas.height - 100;
-            player.hearts = 3;
+            player.hearts = maxHearts;  // Use upgraded max hearts
             hills.splice(0, hills.length);
             for (let i = 0; i < 10; i++) {
                 hills.push({
@@ -592,7 +989,35 @@
             playerSpeed = playerSpeed;
             attackRange = attackRange;
             moneyPerKill = moneyPerKill;
+            
+            // Clear existing enemies and spawn new ones for the new level
+            enemies.splice(0, enemies.length);
+            projectiles.splice(0, projectiles.length);
+            bossKilled = false;
+            
+            // Reset timer for new level
+            levelTimeRemaining = baseLevelTime;
+            levelStartTime = Date.now();
+            timerDisplay.textContent = levelTimeRemaining;
+            
+            spawnEnemies();
+            
             gameLoop()
+        }
+
+        function showGameOver(reason) {
+            gameActive = false;
+            spawnEnemiesEnabled = false;
+            
+            // Update final stats
+            finalLevelDisplay.textContent = level;
+            finalKillsDisplay.textContent = kills;
+            finalMoneyDisplay.textContent = money;
+            
+            // Show game over screen
+            gameOverElement.style.display = "flex";
+            shopElement.style.display = "none";
+            victoryElement.style.display = "none";
         }
 
         function resetGame() {
@@ -602,7 +1027,8 @@
             money = 0;
             player.x = 50;
             player.y = canvas.height - 100;
-            player.hearts = 3;
+            maxHearts = 3;  // Reset max hearts when game restarts
+            player.hearts = maxHearts;
             player.inventory = [];
             hills.splice(0, hills.length);
             for (let i = 0; i < 10; i++) {
@@ -624,13 +1050,39 @@
             playerSpeed = 5;
             attackRange = 50;
             moneyPerKill = 5;
-            gameActive = true;
+            gameActive = false;  // Don't start automatically
+            gameStarted = false;
             shopElement.style.display = "none";
+            victoryElement.style.display = "none";
+            gameOverElement.style.display = "none";
+            welcomeScreen.style.display = "flex";  // Show welcome screen again
+            bossKilled = false;
+            
+            // Reset timer
+            baseLevelTime = 70;  // Reset base time when game restarts
+            levelTimeRemaining = baseLevelTime;
+            levelStartTime = Date.now();
+            
+            // Reset attack state
+            attackStartTime = 0;
+            attackEnded = false;
+            attackDuration = 3000;  // Reset attack duration to 3 seconds
+            
             levelDisplay.textContent = level;
             killsDisplay.textContent = kills;
             moneyDisplay.textContent = money;
+            timerDisplay.textContent = levelTimeRemaining;
             challengeDisplay.textContent = `הרוג ${enemiesToKillForLevel} אויבים כדי לעבור שלב!`;
-            gameLoop();
+            
+            // Reset individual item prices
+            speedPrice = 50;
+            rangePrice = 50;
+            moneyPrice = 50;
+            healthPrice = 100;
+            timePrice = 25;
+            attackDurationPrice = 50;
+            updateShopPrices();  // Update shop prices after game reset
+            // Don't start game loop automatically
         }
 
         function drawChallenges() {
@@ -656,13 +1108,61 @@
             });
 
             enemies.forEach(enemy => {
-                ctx.fillStyle = enemy.color;
-                ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+                if (enemy.isBoss) {
+                    // Boss hit flash effect
+                    const timeSinceHit = Date.now() - enemy.hitFlash;
+                    if (timeSinceHit < 300) {
+                        // Flash white for 300ms after being hit
+                        ctx.fillStyle = Math.floor(timeSinceHit / 50) % 2 === 0 ? "white" : enemy.color;
+                    } else {
+                        ctx.fillStyle = enemy.color;
+                    }
+                    
+                    // Draw boss
+                    ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+                    
+                    // Draw boss health bar
+                    const barWidth = enemy.width;
+                    const barHeight = 4;
+                    const healthRatio = enemy.lives / enemy.maxLives;
+                    
+                    // Background (red)
+                    ctx.fillStyle = "red";
+                    ctx.fillRect(enemy.x, enemy.y - 15, barWidth, barHeight);
+                    
+                    // Health (green)
+                    ctx.fillStyle = "lime";
+                    ctx.fillRect(enemy.x, enemy.y - 15, barWidth * healthRatio, barHeight);
+                    
+                    // Draw protection dome if boss is protected
+                    if (Date.now() < enemy.protectionEndTime) {
+                        const centerX = enemy.x + enemy.width / 2;
+                        const centerY = enemy.y + enemy.height / 2;
+                        const domeRadius = enemy.width * 0.8;
+                        
+                        // Draw dome outline
+                        ctx.beginPath();
+                        ctx.arc(centerX, centerY, domeRadius, 0, 2 * Math.PI);
+                        ctx.strokeStyle = "cyan";
+                        ctx.lineWidth = 3;
+                        ctx.stroke();
+                        
+                        // Draw semi-transparent dome fill
+                        ctx.beginPath();
+                        ctx.arc(centerX, centerY, domeRadius, 0, 2 * Math.PI);
+                        ctx.fillStyle = "rgba(0, 255, 255, 0.2)";
+                        ctx.fill();
+                    }
+                } else {
+                    // Regular enemy
+                    ctx.fillStyle = enemy.color;
+                    ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+                }
             });
 
             projectiles.forEach(projectile => {
                 ctx.fillStyle = "black";
-                ctx.fillRect(projectile.x, projectile.y, 5, 5);
+                ctx.fillRect(projectile.x, projectile.y, projectile.width || 5, projectile.height || 5);
             });
 
             drawChallenges();
@@ -674,16 +1174,50 @@
             moneyDisplay.textContent = `${money} $`;
             heartsDisplay.textContent = '❤️'.repeat(player.hearts);
 
-            if (keys["d"]) {
+            // Only show attack circle when actively attacking
+            if (keys["d"] && attackStartTime > 0 && !attackEnded) {
                 ctx.beginPath();
                 ctx.arc(player.x + player.width / 2, player.y + player.height / 2, attackRange, 0, 2 * Math.PI);
                 ctx.strokeStyle = "green";
                 ctx.stroke();
             }
+            
+            // Show attack duration bar only when attacking
+            if (attackStartTime > 0 && !attackEnded) {
+                const attackProgress = (Date.now() - attackStartTime) / attackDuration;
+                const barWidth = 100;
+                const barHeight = 8;
+                const barX = player.x - (barWidth - player.width) / 2;
+                const barY = player.y - 25;
+                
+                // Background
+                ctx.fillStyle = "rgba(0, 255, 0, 0.3)";
+                ctx.fillRect(barX, barY, barWidth, barHeight);
+                
+                // Progress
+                ctx.fillStyle = "green";
+                ctx.fillRect(barX, barY, barWidth * Math.min(attackProgress, 1), barHeight);
+                
+                // Border
+                ctx.strokeStyle = "white";
+                ctx.lineWidth = 1;
+                ctx.strokeRect(barX, barY, barWidth, barHeight);
+            }
         }
 
         function gameLoop() {
             if (gameActive) {
+                // Update timer
+                const timeElapsed = Math.floor((Date.now() - levelStartTime) / 1000);
+                levelTimeRemaining = Math.max(0, baseLevelTime - timeElapsed);
+                timerDisplay.textContent = levelTimeRemaining;
+                
+                // Check if time is up
+                if (levelTimeRemaining <= 0) {
+                    showGameOver("זמן נגמר!");
+                    return;
+                }
+                
                 movePlayer();
                 mineHills();
                 placeBlock();
@@ -697,13 +1231,16 @@
                         player.hearts--;
                         enemies.splice(enemies.indexOf(enemy), 1);
                         if (player.hearts <= 0) {
-                            alert("Game Over!");
-                            resetGame();
+                            showGameOver("נגמרו החיים!");
                         }
                     }
                 });
 
-                if (kills >= enemiesToKillForLevel) {
+                // Check level completion
+                const isBossLevel = level === 5 || level === 10 || level === 15 || level === 20;
+                const levelComplete = isBossLevel ? bossKilled : kills >= enemiesToKillForLevel;
+                
+                if (levelComplete) {
                     gameActive = false;
                     spawnEnemiesEnabled = false;
                     shopElement.style.display = "flex";
@@ -711,7 +1248,7 @@
                 if (player.hearts > 0) {
                     requestAnimationFrame(gameLoop);
                 } else {
-                    alert("Game Over!");
+                    showGameOver("נגמרו החיים!");
                 }
             }
             else{
@@ -719,39 +1256,88 @@
             }
         }
 
+        // Individual item prices that increase with each purchase
+        let speedPrice = 50;
+        let rangePrice = 50;
+        let moneyPrice = 50;
+        let healthPrice = 100;
+        let timePrice = 25;
+        let attackDurationPrice = 50;
+
+        // Function to update shop button text with current prices
+        function updateShopPrices() {
+            buySpeedButton.textContent = `מהירות +1 (${speedPrice}$)`;
+            buyRangeButton.textContent = `טווח +1 (${rangePrice}$)`;
+            buyMoneyButton.textContent = `כסף +1 (${moneyPrice}$)`;
+            buyHealthButton.textContent = `חיים +1 (${healthPrice}$)`;
+            buyTimeButton.textContent = `זמן +10 שניות (${timePrice}$)`;
+            buyAttackDurationButton.textContent = `תקיפה +1 שנייה (${attackDurationPrice}$)`;
+        }
+
         buySpeedButton.addEventListener("click", () => {
-            if (money >= 50) {
-                money -= 50;
+            if (money >= speedPrice) {
+                money -= speedPrice;
+                speedPrice += 5;  // Increase price for next purchase
                 player.speed += 1;
                 moneyDisplay.textContent = `${money} $`;
                 playerSpeed = player.speed;
+                updateShopPrices();  // Update button text with new price
             }
         });
 
         buyRangeButton.addEventListener("click", () => {
-            if (money >= 50) {
-                money -= 50;
+            if (money >= rangePrice) {
+                money -= rangePrice;
+                rangePrice += 5;  // Increase price for next purchase
                 attackRange += 10;
                 moneyDisplay.textContent = `${money} $`;
                 attackRange = attackRange;
+                updateShopPrices();  // Update button text with new price
             }
         });
 
         buyMoneyButton.addEventListener("click", () => {
-            if (money >= 50) {
-                money -= 50;
+            if (money >= moneyPrice) {
+                money -= moneyPrice;
+                moneyPrice += 5;  // Increase price for next purchase
                 moneyPerKill += 1;
                 moneyDisplay.textContent = `${money} $`;
                 moneyPerKill = moneyPerKill;
+                updateShopPrices();  // Update button text with new price
             }
         });
 
         buyHealthButton.addEventListener("click", () => {
-            if (money >= 100) {
-                money -= 100;
-                player.hearts += 1;
+            if (money >= healthPrice) {
+                money -= healthPrice;
+                healthPrice += 5;  // Increase price for next purchase
+                maxHearts += 1;  // Increase max hearts permanently
+                player.hearts = maxHearts;  // Set current hearts to new max
                 moneyDisplay.textContent = `${money} $`;
                 heartsDisplay.textContent = '❤️'.repeat(player.hearts);
+                updateShopPrices();  // Update button text with new price
+            }
+        });
+
+        buyTimeButton.addEventListener("click", () => {
+            if (money >= timePrice) {
+                money -= timePrice;
+                timePrice += 5;  // Increase price for next purchase
+                // Permanently increase base level time for all future levels
+                baseLevelTime += 10;
+                moneyDisplay.textContent = `${money} $`;
+                updateShopPrices();  // Update button text with new price
+            }
+        });
+
+        buyAttackDurationButton.addEventListener("click", () => {
+            if (money >= attackDurationPrice) {
+                money -= attackDurationPrice;
+                attackDurationPrice += 5;  // Increase price for next purchase
+                // Permanently increase attack duration by 1 second
+                attackDuration += 1000;
+                moneyDisplay.textContent = `${money} $`;
+                updateShopPrices();  // Update button text with new price
             }
         });
 
@@ -762,8 +1348,27 @@
             }
         });
 
-        setInterval(spawnNewEnemy, enemySpawnInterval);
-        gameLoop();
+        playAgainButton.addEventListener("click", () => {
+            victoryElement.style.display = "none";
+            spawnEnemiesEnabled = true;
+            resetGame();
+        });
+
+        restartGameButton.addEventListener("click", () => {
+            gameOverElement.style.display = "none";
+            spawnEnemiesEnabled = true;
+            resetGame();
+        });
+
+        startGameButton.addEventListener("click", () => {
+            welcomeScreen.style.display = "none";
+            gameStarted = true;
+            gameActive = true;
+            spawnEnemiesEnabled = true;
+            updateShopPrices();  // Set initial shop prices
+            setInterval(spawnNewEnemy, enemySpawnInterval);
+            gameLoop();
+        });
     </script>
 </body>
 </html>
