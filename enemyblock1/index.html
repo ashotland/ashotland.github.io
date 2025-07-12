@@ -106,7 +106,7 @@
         }
         canvas {
             display: block;
-            background: #87ceeb;
+            background: #000;
         }
         .hearts {
             position: absolute;
@@ -387,6 +387,67 @@
         }
         setCanvasSize();
         window.addEventListener("resize", setCanvasSize);
+
+        // Background images for different level ranges
+        const backgroundImages = {
+            bkg1: new Image(),
+            bkg2: new Image()
+        };
+        
+        // Load background images
+        backgroundImages.bkg1.src = 'bkg1.jpeg';
+        backgroundImages.bkg2.src = 'bkg2.jpeg';
+        
+        // Add load event listeners for debugging
+        backgroundImages.bkg1.onload = () => console.log('bkg1.jpeg loaded successfully');
+        backgroundImages.bkg2.onload = () => console.log('bkg2.jpeg loaded successfully');
+        backgroundImages.bkg1.onerror = () => console.error('Failed to load bkg1.jpeg');
+        backgroundImages.bkg2.onerror = () => console.error('Failed to load bkg2.jpeg');
+        
+        // Function to get appropriate background for current level
+        function getCurrentBackground() {
+            if (level >= 1 && level <= 5) {
+                return backgroundImages.bkg1;
+            } else if (level >= 6 && level <= 10) {
+                return backgroundImages.bkg2;
+            } else if (level >= 11 && level <= 15) {
+                return backgroundImages.bkg1;
+            } else if (level >= 16 && level <= 20) {
+                return backgroundImages.bkg1;
+            }
+            // Default fallback
+            return backgroundImages.bkg1;
+        }
+        
+        // Track current background to detect changes
+        let currentBackgroundName = '';
+        
+        // Function to draw background
+        function drawBackground() {
+            const bgImage = getCurrentBackground();
+            
+            // Determine which background we're using
+            let bgName = '';
+            if (level >= 1 && level <= 5) bgName = 'bkg1';
+            else if (level >= 6 && level <= 10) bgName = 'bkg2';
+            else if (level >= 11 && level <= 15) bgName = 'bkg1';
+            else if (level >= 16 && level <= 20) bgName = 'bkg1';
+            
+            // Log background changes
+            if (bgName !== currentBackgroundName) {
+                console.log(`Level ${level}: Background changed to ${bgName}.jpeg`);
+                currentBackgroundName = bgName;
+            }
+            
+            if (bgImage.complete) {
+                // Draw background image to fill entire canvas
+                ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
+            } else {
+                // Fallback to solid color if image not loaded
+                ctx.fillStyle = "#87ceeb";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+        }
 
         const welcomeScreen = document.getElementById("welcomeScreen");
         const startGameButton = document.getElementById("startGame");
@@ -1115,7 +1176,8 @@
         }
 
         function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // Draw level-appropriate background
+            drawBackground();
 
             ctx.fillStyle = player.color;
             ctx.fillRect(player.x, player.y, player.width, player.height);
