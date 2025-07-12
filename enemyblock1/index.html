@@ -391,18 +391,26 @@
         // Background images for different level ranges
         const backgroundImages = {
             bkg1: new Image(),
-            bkg2: new Image()
+            bkg2: new Image(),
+            bkg3: new Image(),
+            bkg4: new Image()
         };
         
         // Load background images
         backgroundImages.bkg1.src = 'bkg1.jpeg';
         backgroundImages.bkg2.src = 'bkg2.jpeg';
+        backgroundImages.bkg3.src = 'bkg3.jpeg';
+        backgroundImages.bkg4.src = 'bkg4.jpeg';
         
         // Add load event listeners for debugging
         backgroundImages.bkg1.onload = () => console.log('bkg1.jpeg loaded successfully');
         backgroundImages.bkg2.onload = () => console.log('bkg2.jpeg loaded successfully');
+        backgroundImages.bkg3.onload = () => console.log('bkg3.jpeg loaded successfully');
+        backgroundImages.bkg4.onload = () => console.log('bkg4.jpeg loaded successfully');
         backgroundImages.bkg1.onerror = () => console.error('Failed to load bkg1.jpeg');
         backgroundImages.bkg2.onerror = () => console.error('Failed to load bkg2.jpeg');
+        backgroundImages.bkg3.onerror = () => console.error('Failed to load bkg3.jpeg');
+        backgroundImages.bkg4.onerror = () => console.error('Failed to load bkg4.jpeg');
         
         // Function to get appropriate background for current level
         function getCurrentBackground() {
@@ -411,9 +419,9 @@
             } else if (level >= 6 && level <= 10) {
                 return backgroundImages.bkg2;
             } else if (level >= 11 && level <= 15) {
-                return backgroundImages.bkg1;
+                return backgroundImages.bkg3;
             } else if (level >= 16 && level <= 20) {
-                return backgroundImages.bkg1;
+                return backgroundImages.bkg4;
             }
             // Default fallback
             return backgroundImages.bkg1;
@@ -425,20 +433,7 @@
         // Function to draw background
         function drawBackground() {
             const bgImage = getCurrentBackground();
-            
-            // Determine which background we're using
-            let bgName = '';
-            if (level >= 1 && level <= 5) bgName = 'bkg1';
-            else if (level >= 6 && level <= 10) bgName = 'bkg2';
-            else if (level >= 11 && level <= 15) bgName = 'bkg1';
-            else if (level >= 16 && level <= 20) bgName = 'bkg1';
-            
-            // Log background changes
-            if (bgName !== currentBackgroundName) {
-                console.log(`Level ${level}: Background changed to ${bgName}.jpeg`);
-                currentBackgroundName = bgName;
-            }
-            
+                       
             if (bgImage.complete) {
                 // Draw background image to fill entire canvas
                 ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
