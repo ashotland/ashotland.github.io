@@ -523,7 +523,8 @@
             speed: playerSpeed,
             hearts: 3,
             inventory: [],
-            rotation: 0  // Player facing direction in degrees (0=right, 90=down, 180=left, 270=up)
+            rotation: 0,  // Player facing direction in degrees (0=right, 90=down, 270=up)
+            facingLeft: false  // Track if player is facing left for horizontal mirroring
         };
 
         const hills = [];
@@ -680,26 +681,30 @@
             let newX = player.x;
             let newY = player.y;
 
-            // Track movement and update rotation
+            // Track movement and update rotation/facing direction
             let moved = false;
             if (keys["arrowright"]) {
                 newX += player.speed;
                 player.rotation = 0;    // Face right
+                player.facingLeft = false;
                 moved = true;
             }
             if (keys["arrowleft"]) {
                 newX -= player.speed;
-                player.rotation = 180;  // Face left
+                player.rotation = 0;    // Same rotation as right, but will be mirrored
+                player.facingLeft = true;
                 moved = true;
             }
             if (keys["arrowup"]) {
                 newY -= player.speed;
                 player.rotation = 270;  // Face up
+                player.facingLeft = false;
                 moved = true;
             }
             if (keys["arrowdown"]) {
                 newY += player.speed;
                 player.rotation = 90;   // Face down
+                player.facingLeft = false;
                 moved = true;
             }
 
@@ -1078,6 +1083,7 @@
             player.x = 50;
             player.y = canvas.height - 100;
             player.hearts = maxHearts;  // Use upgraded max hearts
+            player.facingLeft = false;  // Reset facing direction
             hills.splice(0, hills.length);
             for (let i = 0; i < 10; i++) {
                 hills.push({
@@ -1134,6 +1140,7 @@
             maxHearts = 3;  // Reset max hearts when game restarts
             player.hearts = maxHearts;
             player.inventory = [];
+            player.facingLeft = false;  // Reset facing direction
             hills.splice(0, hills.length);
             for (let i = 0; i < 10; i++) {
                 hills.push({
@@ -1199,11 +1206,15 @@
             // Draw level-appropriate background
             drawBackground();
 
-            // Draw player with rotation
+            // Draw player with rotation and horizontal mirroring
             if (playerImage.complete) {
                 ctx.save();
                 // Move to player center for rotation
                 ctx.translate(player.x + player.width/2, player.y + player.height/2);
+                // Apply horizontal mirroring if facing left
+                if (player.facingLeft) {
+                    ctx.scale(-1, 1);
+                }
                 // Rotate based on player direction
                 ctx.rotate(player.rotation * Math.PI / 180);
                 // Draw player image centered
