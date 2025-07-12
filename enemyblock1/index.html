@@ -396,6 +396,12 @@
             bkg4: new Image()
         };
         
+        // Player image
+        const playerImage = new Image();
+        playerImage.src = 'player.png';
+        playerImage.onload = () => console.log('player.png loaded successfully');
+        playerImage.onerror = () => console.error('Failed to load player.png');
+        
         // Load background images
         backgroundImages.bkg1.src = 'bkg1.jpeg';
         backgroundImages.bkg2.src = 'bkg2.jpeg';
@@ -511,12 +517,13 @@
         const player = {
             x: 50,
             y: canvas.height - 100,
-            width: 30,
-            height: 30,
+            width: 60,
+            height: 60,
             color: "green",
             speed: playerSpeed,
             hearts: 3,
-            inventory: []
+            inventory: [],
+            rotation: 0  // Player facing direction in degrees (0=right, 90=down, 180=left, 270=up)
         };
 
         const hills = [];
@@ -673,10 +680,28 @@
             let newX = player.x;
             let newY = player.y;
 
-            if (keys["arrowright"]) newX += player.speed;
-            if (keys["arrowleft"])  newX -= player.speed;
-            if (keys["arrowup"])      newY -= player.speed;
-            if (keys["arrowdown"])    newY += player.speed;
+            // Track movement and update rotation
+            let moved = false;
+            if (keys["arrowright"]) {
+                newX += player.speed;
+                player.rotation = 0;    // Face right
+                moved = true;
+            }
+            if (keys["arrowleft"]) {
+                newX -= player.speed;
+                player.rotation = 180;  // Face left
+                moved = true;
+            }
+            if (keys["arrowup"]) {
+                newY -= player.speed;
+                player.rotation = 270;  // Face up
+                moved = true;
+            }
+            if (keys["arrowdown"]) {
+                newY += player.speed;
+                player.rotation = 90;   // Face down
+                moved = true;
+            }
 
             let collision = false;
             for (let hill of hills) {
@@ -1174,8 +1199,21 @@
             // Draw level-appropriate background
             drawBackground();
 
-            ctx.fillStyle = player.color;
-            ctx.fillRect(player.x, player.y, player.width, player.height);
+            // Draw player with rotation
+            if (playerImage.complete) {
+                ctx.save();
+                // Move to player center for rotation
+                ctx.translate(player.x + player.width/2, player.y + player.height/2);
+                // Rotate based on player direction
+                ctx.rotate(player.rotation * Math.PI / 180);
+                // Draw player image centered
+                ctx.drawImage(playerImage, -player.width/2, -player.height/2, player.width, player.height);
+                ctx.restore();
+            } else {
+                // Fallback to rectangle if image not loaded
+                ctx.fillStyle = player.color;
+                ctx.fillRect(player.x, player.y, player.width, player.height);
+            }
 
             hills.forEach(hill => {
                 ctx.fillStyle = hill.color;
