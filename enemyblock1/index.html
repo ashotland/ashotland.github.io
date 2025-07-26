@@ -595,6 +595,7 @@
         const enemies = [];
         const projectiles = [];
         const fireballs = [];
+        const poisonBottles = [];
         const builtBlocks = [];
         let lastFortifyTime = 0;
         const fortifyInterval = 5000;
@@ -641,6 +642,7 @@
                     isBoss: true,
                     lastShot: Date.now(),  // Initialize with current time
                     lastFireballShot: Date.now() - 8000,  // Initialize fireball shot time (start with 2s delay for testing)
+                    lastPoisonShot: Date.now() - 8000,  // Initialize poison shot time (start with 2s delay for testing)
                     lives: bossLives,
                     maxLives: bossLives,
                     hitFlash: 0,  // For hit animation
@@ -648,6 +650,9 @@
                 });
                 if (level === 10) {
                     console.log("Level 10 boss created with fireball capability!");
+                }
+                if (level === 15) {
+                    console.log("Level 15 boss created with poison bottle capability!");
                 }
                 bossKilled = false;
             }
@@ -976,6 +981,50 @@
                         }
                     });
                 }
+                
+                // Level 15 boss poison bottle shooting (every 10 seconds, smart tracking, only 1 at a time)
+                if (enemy.isBoss && level === 15 && Date.now() - enemy.lastPoisonShot > 10000 && poisonBottles.length === 0) {
+                    console.log("Level 15 boss firing poison bottle!");
+                    enemy.lastPoisonShot = Date.now();
+                    
+                    let poisonCollision = false;
+                    const newPoisonPos = {
+                        x: enemy.x + enemy.width/2,
+                        y: enemy.y + enemy.height/2,
+                        width: 15,
+                        height: 15
+                    };
+                    
+                    // Check initial collision
+                    for (let hill of hills) {
+                        if(checkCollision(newPoisonPos, hill)) {
+                            poisonCollision = true;
+                            break;
+                        }
+                    }
+                    if (!poisonCollision) {
+                        for (let block of builtBlocks) {
+                            if(checkCollision(newPoisonPos, block)) {
+                                poisonCollision = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (!poisonCollision) {
+                        console.log("Creating poison bottle with player tracking! (Only 1 allowed at a time)");
+                        poisonBottles.push({ 
+                            x: enemy.x + enemy.width/2, 
+                            y: enemy.y + enemy.height/2, 
+                            targetX: player.x + player.width/2,
+                            targetY: player.y + player.height/2,
+                            speed: 2,
+                            width: 15,
+                            height: 15,
+                            updateTargetTime: Date.now()
+                        });
+                    }
+                }
                 // Normal yellow enemy shooting
                 else if (enemy.color === "yellow" && Math.random() < 0.01) {
                     let projectileCollision = false;
@@ -1097,6 +1146,77 @@
                 ) {
                     player.hearts -= 2;  // Fireballs deal 2 damage
                     fireballs.splice(index, 1);
+                    if (player.hearts <= 0) {
+                        player.hearts = 0;
+                    }
+                }
+            });
+        }
+
+        function movePoisonBottles() {
+            if (poisonBottles.length > 0) {
+                console.log("Moving", poisonBottles.length, "poison bottles");
+            }
+            poisonBottles.forEach((poison, index) => {
+                // Update target position every 500ms for smart tracking
+                if (Date.now() - poison.updateTargetTime > 500) {
+                    poison.targetX = player.x + player.width/2;
+                    poison.targetY = player.y + player.height/2;
+                    poison.updateTargetTime = Date.now();
+                }
+                
+                // Calculate direction towards target
+                const dx = poison.targetX - poison.x;
+                const dy = poison.targetY - poison.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance > 0) {
+                    // Normalize direction and apply speed
+                    poison.x += (dx / distance) * poison.speed;
+                    poison.y += (dy / distance) * poison.speed;
+                }
+
+                // Check collision with hills (rocks) - destroy rock but continue
+                for (let h = hills.length - 1; h >= 0; h--) {
+                    const hill = hills[h];
+                    if (checkCollision(poison, hill)) {
+                        console.log("Poison bottle destroyed a rock!");
+                        hills.splice(h, 1);  // Destroy the rock
+                        // Poison bottle continues moving, doesn't get destroyed
+                    }
+                }
+                
+                // Check collision with built blocks (walls) - poison bottle gets destroyed
+                let wallCollision = false;
+                for (let block of builtBlocks) {
+                    if (checkCollision(poison, block)) {
+                        wallCollision = true;
+                        break;
+                    }
+                }
+
+                if (wallCollision) {
+                    console.log("Poison bottle hit wall and was destroyed!");
+                    poisonBottles.splice(index, 1);
+                    return;
+                }
+
+                // Remove if off screen
+                if (poison.x < -20 || poison.x > canvas.width + 20 || 
+                    poison.y < -20 || poison.y > canvas.height + 20) {
+                    console.log("Poison bottle went off screen and was removed");
+                    poisonBottles.splice(index, 1);
+                    return;
+                }
+
+                // Poison bottle collision with player - deals 1 damage and reduces stats
+                if (checkCollision(poison, player)) {
+                    console.log("Poison bottle hit player! Reducing stats...");
+                    player.hearts -= 1;  // Reduce 1 life
+                    attackRange = Math.max(10, attackRange - 1);  // Reduce 1 range (minimum 10)
+                    player.speed = Math.max(1, player.speed - 1);  // Reduce 1 speed (minimum 1)
+                    playerSpeed = player.speed;  // Update player speed
+                    poisonBottles.splice(index, 1);
                     if (player.hearts <= 0) {
                         player.hearts = 0;
                     }
@@ -1259,6 +1379,7 @@
             enemies.splice(0, enemies.length);
             projectiles.splice(0, projectiles.length);
             fireballs.splice(0, fireballs.length);
+            poisonBottles.splice(0, poisonBottles.length);
             bossKilled = false;
             
             // Reset timer for new level
@@ -1313,6 +1434,7 @@
             spawnEnemies();
             projectiles.splice(0, projectiles.length);
             fireballs.splice(0, fireballs.length);
+            poisonBottles.splice(0, poisonBottles.length);
             builtBlocks.splice(0, builtBlocks.length);
             enemySpawnInterval = 1000;
             enemiesToKillForLevel = 10;
@@ -1466,6 +1588,14 @@
                 ctx.textAlign = "start"; // Reset text alignment
             });
 
+            poisonBottles.forEach(poison => {
+                // Draw poison bottle as poison emoji
+                ctx.font = "18px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText("☠️", poison.x + poison.width/2, poison.y + poison.height - 2);
+                ctx.textAlign = "start"; // Reset text alignment
+            });
+
             drawChallenges();
 
             ctx.fillStyle = "white";
@@ -1524,6 +1654,7 @@
                 moveEnemies();
                 moveProjectiles();
                 moveFireballs();
+                movePoisonBottles();
                 attackEnemies();
                 draw();
 
