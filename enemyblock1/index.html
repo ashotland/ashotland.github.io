@@ -594,6 +594,7 @@
 
         const enemies = [];
         const projectiles = [];
+        const fireballs = [];
         const builtBlocks = [];
         let lastFortifyTime = 0;
         const fortifyInterval = 5000;
@@ -639,11 +640,15 @@
                     health: 50 + level * 5,  // Much more health
                     isBoss: true,
                     lastShot: Date.now(),  // Initialize with current time
+                    lastFireballShot: Date.now() - 8000,  // Initialize fireball shot time (start with 2s delay for testing)
                     lives: bossLives,
                     maxLives: bossLives,
                     hitFlash: 0,  // For hit animation
                     protectionEndTime: 0  // When protection dome expires
                 });
+                if (level === 10) {
+                    console.log("Level 10 boss created with fireball capability!");
+                }
                 bossKilled = false;
             }
         }
@@ -922,6 +927,55 @@
                         }
                     });
                 }
+                
+                // Level 10 boss fireball shooting (every 10 seconds, 4 directions)
+                if (enemy.isBoss && level === 10 && Date.now() - enemy.lastFireballShot > 10000) {
+                    console.log("Level 10 boss firing fireballs!");
+                    enemy.lastFireballShot = Date.now();
+                    // 4 cardinal directions for fireballs
+                    const fireballDirections = [
+                        {dx: 0, dy: -1.5},  // North
+                        {dx: 1.5, dy: 0},   // East
+                        {dx: 0, dy: 1.5},   // South
+                        {dx: -1.5, dy: 0}   // West
+                    ];
+                    
+                    fireballDirections.forEach(dir => {
+                        let fireballCollision = false;
+                        const newFireballPos = {
+                            x: enemy.x + enemy.width/2 + dir.dx * 10,
+                            y: enemy.y + enemy.height/2 + dir.dy * 10,
+                            width: 12,
+                            height: 12
+                        };
+                        
+                        for (let hill of hills) {
+                            if(checkCollision(newFireballPos, hill)) {
+                                fireballCollision = true;
+                                break;
+                            }
+                        }
+                        if (!fireballCollision) {
+                            for (let block of builtBlocks) {
+                                if(checkCollision(newFireballPos, block)) {
+                                    fireballCollision = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (!fireballCollision) {
+                            console.log("Creating fireball in direction:", dir);
+                            fireballs.push({ 
+                                x: enemy.x + enemy.width/2, 
+                                y: enemy.y + enemy.height/2, 
+                                dx: dir.dx, 
+                                dy: dir.dy,
+                                width: 12,
+                                height: 12
+                            });
+                        }
+                    });
+                }
                 // Normal yellow enemy shooting
                 else if (enemy.color === "yellow" && Math.random() < 0.01) {
                     let projectileCollision = false;
@@ -994,6 +1048,56 @@
                     projectiles.splice(index, 1);
                     if (player.hearts <= 0) {
                         alert("Game Over!");
+                        player.hearts = 0;
+                    }
+                }
+            });
+        }
+
+        function moveFireballs() {
+            if (fireballs.length > 0) {
+                console.log("Moving", fireballs.length, "fireballs");
+            }
+            fireballs.forEach((fireball, index) => {
+                fireball.x += fireball.dx;
+                fireball.y += fireball.dy;
+
+                let collision = false;
+                for (let hill of hills) {
+                    if (checkCollision(fireball, hill)) {
+                        collision = true;
+                        break;
+                    }
+                }
+                if (!collision) {
+                    for (let block of builtBlocks) {
+                        if (checkCollision(fireball, block)) {
+                            collision = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (collision) {
+                    fireballs.splice(index, 1);
+                    return;
+                }
+
+                if (fireball.x < 0 || fireball.x > canvas.width || 
+                    fireball.y < 0 || fireball.y > canvas.height) {
+                    fireballs.splice(index, 1);
+                }
+
+                // Fireball collision with player - deals 2 damage
+                if (
+                    fireball.x < player.x + player.width &&
+                    fireball.x + fireball.width > player.x &&
+                    fireball.y < player.y + player.height &&
+                    fireball.y + fireball.height > player.y
+                ) {
+                    player.hearts -= 2;  // Fireballs deal 2 damage
+                    fireballs.splice(index, 1);
+                    if (player.hearts <= 0) {
                         player.hearts = 0;
                     }
                 }
@@ -1154,6 +1258,7 @@
             // Clear existing enemies and spawn new ones for the new level
             enemies.splice(0, enemies.length);
             projectiles.splice(0, projectiles.length);
+            fireballs.splice(0, fireballs.length);
             bossKilled = false;
             
             // Reset timer for new level
@@ -1207,6 +1312,7 @@
             enemies.splice(0, enemies.length);
             spawnEnemies();
             projectiles.splice(0, projectiles.length);
+            fireballs.splice(0, fireballs.length);
             builtBlocks.splice(0, builtBlocks.length);
             enemySpawnInterval = 1000;
             enemiesToKillForLevel = 10;
@@ -1352,6 +1458,14 @@
                 ctx.fillRect(projectile.x, projectile.y, projectile.width || 5, projectile.height || 5);
             });
 
+            fireballs.forEach(fireball => {
+                // Draw fireball as fire emoji
+                ctx.font = "16px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText("🔥", fireball.x + fireball.width/2, fireball.y + fireball.height - 2);
+                ctx.textAlign = "start"; // Reset text alignment
+            });
+
             drawChallenges();
 
             ctx.fillStyle = "white";
@@ -1409,6 +1523,7 @@
                 placeBlock();
                 moveEnemies();
                 moveProjectiles();
+                moveFireballs();
                 attackEnemies();
                 draw();
 
