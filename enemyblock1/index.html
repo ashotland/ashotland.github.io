@@ -39,6 +39,41 @@
             text-align: center;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
             animation: welcomeFadeIn 1s ease-out;
+            max-width: 90vw;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        @media (max-width: 768px) {
+            .welcome-content {
+                padding: 20px;
+                margin: 10px;
+                border-radius: 15px;
+            }
+            .welcome-content h1 {
+                font-size: 32px !important;
+            }
+            .subtitle {
+                font-size: 16px !important;
+            }
+            .game-instructions {
+                padding: 15px !important;
+                margin: 20px 0 !important;
+            }
+            .game-instructions h3 {
+                font-size: 20px !important;
+            }
+            .game-instructions h4 {
+                font-size: 16px !important;
+            }
+            .game-instructions p {
+                font-size: 14px !important;
+                margin: 8px 0 !important;
+            }
+            .start-btn {
+                font-size: 20px !important;
+                padding: 12px 30px !important;
+            }
         }
         @keyframes welcomeFadeIn {
             from {
@@ -321,10 +356,30 @@
             <h1>EnemyBlock1</h1>
             <p class="subtitle">by Alon S.</p>
             <div class="game-instructions">
-                <p>🎯 הרוג אויבים כדי לעבור שלבים</p>
-                <p>⚔️ הרוג בוסים בשלבים 5, 10, 15, 20</p>
-                <p>⏰ יש לך 70 שניות לכל שלב</p>
-                <p>🛒 שדרג את היכולות שלך בחנות</p>
+                <h3 style="margin-top: 0; color: #333;">🎮 איך לשחק</h3>
+                
+                <div style="margin: 15px 0;">
+                    <h4 style="color: #4CAF50; margin: 10px 0;">⌨️ מקלדת:</h4>
+                    <p>🏃 תנועה: חצים ←→↑↓</p>
+                    <p>⚔️ תקיפה וכרייה: D (החזק לחוץ)</p>
+                    <p>🧱 בניית קירות: רווח</p>
+                </div>
+
+                <div style="margin: 15px 0;">
+                    <h4 style="color: #2196F3; margin: 10px 0;">📱 מגע:</h4>
+                    <p>🏃 תנועה: כפתורי החצים ▲◀▶▼</p>
+                    <p>⚔️ תקיפה וכרייה: כפתור ⚔️ (החזק לחוץ)</p>
+                    <p>🧱 בניית קירות: כפתור 🧱</p>
+                </div>
+
+                <div style="margin: 15px 0; border-top: 1px solid #ddd; padding-top: 15px;">
+                    <h4 style="color: #FF9800; margin: 10px 0;">🎯 מטרת המשחק:</h4>
+                    <p>🎯 הרוג אויבים כדי לעבור שלבים</p>
+                    <p>⚔️ הרוג בוסים בשלבים 5, 10, 15, 20</p>
+                    <p>⏰ יש לך 70 שניות לכל שלב</p>
+                    <p>🪨 כרה סלעים למשאבים ובנה חומות 🧱</p>
+                    <p>🛒 שדרג את היכולות שלך בחנות</p>
+                </div>
             </div>
             <button id="startGame" class="start-btn">התחל לשחק</button>
         </div>
@@ -372,7 +427,6 @@
         </div>
         <div class="control-cluster actions">
             <button id="attack">⚔️</button>
-            <button id="mine">⛏️</button>
             <button id="place">🧱</button>
         </div>
     </div>
@@ -398,9 +452,9 @@
         
         // Player image
         const playerImage = new Image();
-        playerImage.src = 'player.png';
-        playerImage.onload = () => console.log('player.png loaded successfully');
-        playerImage.onerror = () => console.error('Failed to load player.png');
+        playerImage.src = 'player.jpeg';
+        playerImage.onload = () => console.log('player.jpeg loaded successfully');
+        playerImage.onerror = () => console.error('Failed to load player.jpeg');
         
         // Load background images
         backgroundImages.bkg1.src = 'bkg1.jpeg';
@@ -479,7 +533,6 @@
         const downButton = document.getElementById("down");
         const leftButton = document.getElementById("left");
         const rightButton = document.getElementById("right");
-        const mineButton = document.getElementById("mine");
         const placeButton = document.getElementById("place");
         const attackButton = document.getElementById("attack");
 
@@ -517,8 +570,8 @@
         const player = {
             x: 50,
             y: canvas.height - 100,
-            width: 60,
-            height: 60,
+            width: 30,
+            height: 30,
             color: "green",
             speed: playerSpeed,
             hearts: 3,
@@ -666,7 +719,6 @@
         handleControl(downButton, "arrowdown");
         handleControl(leftButton, "arrowleft");
         handleControl(rightButton, "arrowright");
-        handleControl(mineButton, "g");
         handleControl(placeButton, " ");
         handleControl(attackButton, "d");
 
@@ -1227,13 +1279,19 @@
             }
 
             hills.forEach(hill => {
-                ctx.fillStyle = hill.color;
-                ctx.fillRect(hill.x, hill.y, hill.width, hill.height);
+                // Draw rock emoji instead of colored rectangle
+                ctx.font = "50px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText("🪨", hill.x + hill.width/2, hill.y + hill.height - 5);
+                ctx.textAlign = "start"; // Reset text alignment
             });
 
             builtBlocks.forEach(block => {
-                ctx.fillStyle = block.color;
-                ctx.fillRect(block.x, block.y, block.width, block.height);
+                // Draw brick emoji instead of colored rectangle
+                ctx.font = "30px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText("🧱", block.x + block.width/2, block.y + block.height - 5);
+                ctx.textAlign = "start"; // Reset text alignment
             });
 
             enemies.forEach(enemy => {
@@ -1348,7 +1406,6 @@
                 }
                 
                 movePlayer();
-                mineHills();
                 placeBlock();
                 moveEnemies();
                 moveProjectiles();
