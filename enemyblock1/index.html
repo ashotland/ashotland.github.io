@@ -596,6 +596,7 @@
         const projectiles = [];
         const fireballs = [];
         const poisonBottles = [];
+        const miniBosses = [];
         const builtBlocks = [];
         let lastFortifyTime = 0;
         const fortifyInterval = 5000;
@@ -643,6 +644,7 @@
                     lastShot: Date.now(),  // Initialize with current time
                     lastFireballShot: Date.now() - 8000,  // Initialize fireball shot time (start with 2s delay for testing)
                     lastPoisonShot: Date.now() - 8000,  // Initialize poison shot time (start with 2s delay for testing)
+                    lastMiniBossSpawn: Date.now() - 8000,  // Initialize mini-boss spawn time (start with 2s delay for testing)
                     lives: bossLives,
                     maxLives: bossLives,
                     hitFlash: 0,  // For hit animation
@@ -653,6 +655,9 @@
                 }
                 if (level === 15) {
                     console.log("Level 15 boss created with poison bottle capability!");
+                }
+                if (level === 20) {
+                    console.log("Level 20 boss created with mini-boss spawning capability!");
                 }
                 bossKilled = false;
             }
@@ -1025,6 +1030,44 @@
                         });
                     }
                 }
+                
+                // Level 20 boss mini-boss spawning (every 10 seconds, 2 mini-bosses)
+                if (enemy.isBoss && level === 20 && Date.now() - enemy.lastMiniBossSpawn > 10000) {
+                    console.log("Level 20 boss spawning 2 mini-bosses!");
+                    enemy.lastMiniBossSpawn = Date.now();
+                    
+                    // Spawn 2 mini-bosses
+                    for (let i = 0; i < 2; i++) {
+                        let spawnX, spawnY;
+                        let attempts = 0;
+                        
+                        // Try to find a good spawn position (not colliding with obstacles)
+                        do {
+                            spawnX = Math.random() * (canvas.width - 30);
+                            spawnY = Math.random() * (canvas.height - 30);
+                            attempts++;
+                        } while (attempts < 10); // Limit attempts to prevent infinite loop
+                        
+                        console.log(`Creating mini-boss ${i + 1} at position (${spawnX}, ${spawnY})`);
+                        miniBosses.push({
+                            x: spawnX,
+                            y: spawnY,
+                            width: 25,  // Smaller than main boss (45)
+                            height: 25,
+                            color: "purple",  // Different color to distinguish from main boss
+                            dx: Math.random() > 0.5 ? 1.5 : -1.5,  // Faster than main boss (0.8)
+                            dy: Math.random() > 0.5 ? 1.5 : -1.5,
+                            health: 30,  // Less health than main boss
+                            isBoss: false,  // Not a main boss
+                            isMiniBoss: true,
+                            lives: 2,
+                            maxLives: 2,
+                            hitFlash: 0,
+                            protectionEndTime: 0,
+                            lastShot: Date.now()
+                        });
+                    }
+                }
                 // Normal yellow enemy shooting
                 else if (enemy.color === "yellow" && Math.random() < 0.01) {
                     let projectileCollision = false;
@@ -1224,6 +1267,102 @@
             });
         }
 
+        function moveMiniBosses() {
+            if (miniBosses.length > 0) {
+                console.log("Moving", miniBosses.length, "mini-bosses");
+            }
+            miniBosses.forEach((miniBoss, index) => {
+                // Move mini-boss
+                let newX = miniBoss.x + miniBoss.dx;
+                let newY = miniBoss.y + miniBoss.dy;
+
+                let collision = false;
+                for (let hill of hills) {
+                    if (checkCollision({...miniBoss, x: newX, y: newY}, hill)) {
+                        collision = true;
+                        break;
+                    }
+                }
+                if (!collision) {
+                    for (let block of builtBlocks) {
+                        if (checkCollision({...miniBoss, x: newX, y: newY}, block)) {
+                            collision = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!collision) {
+                    miniBoss.x = newX;
+                    miniBoss.y = newY;
+                } else {
+                    miniBoss.dx *= -1;
+                    miniBoss.dy *= -1;
+                }
+
+                // Bounce off walls
+                if (miniBoss.x <= 0 || miniBoss.x + miniBoss.width >= canvas.width) miniBoss.dx *= -1;
+                if (miniBoss.y <= 0 || miniBoss.y + miniBoss.height >= canvas.height) miniBoss.dy *= -1;
+
+                // Mini-boss shooting (faster than normal enemies)
+                if (Date.now() - miniBoss.lastShot > 800) {  // Shoot every 0.8 seconds
+                    miniBoss.lastShot = Date.now();
+                    // 4 directions: N, E, S, W
+                    const directions = [
+                        {dx: 0, dy: -2.5},   // North
+                        {dx: 2.5, dy: 0},    // East
+                        {dx: 0, dy: 2.5},    // South
+                        {dx: -2.5, dy: 0}    // West
+                    ];
+                    
+                    directions.forEach(dir => {
+                        let projectileCollision = false;
+                        const newProjectilePos = {
+                            x: miniBoss.x + miniBoss.width/2 + dir.dx * 10,
+                            y: miniBoss.y + miniBoss.height/2 + dir.dy * 10,
+                            width: 5,
+                            height: 5
+                        };
+                        
+                        for (let hill of hills) {
+                            if(checkCollision(newProjectilePos, hill)) {
+                                projectileCollision = true;
+                                break;
+                            }
+                        }
+                        if (!projectileCollision) {
+                            for (let block of builtBlocks) {
+                                if(checkCollision(newProjectilePos, block)) {
+                                    projectileCollision = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (!projectileCollision) {
+                            projectiles.push({ 
+                                x: miniBoss.x + miniBoss.width/2, 
+                                y: miniBoss.y + miniBoss.height/2, 
+                                dx: dir.dx, 
+                                dy: dir.dy,
+                                width: 5,
+                                height: 5
+                            });
+                        }
+                    });
+                }
+
+                // Check collision with player (mini-bosses deal damage on contact)
+                if (checkCollision(miniBoss, player)) {
+                    player.hearts--;
+                    miniBosses.splice(index, 1);
+                    console.log("Mini-boss hit player and was destroyed!");
+                    if (player.hearts <= 0) {
+                        player.hearts = 0;
+                    }
+                }
+            });
+        }
+
         function attackEnemies() {
             const currentTime = Date.now();
             
@@ -1289,6 +1428,38 @@
                         kills++;
                         money += moneyPerKill;
                         console.log("Enemy killed!");
+                    }
+                }
+
+                // Check for mini-boss attacks
+                let miniBossTargetIndex = -1;
+                let miniBossClosestDistance = Infinity;
+                miniBosses.forEach((miniBoss, index) => {
+                    const distance = Math.hypot(player.x - miniBoss.x, player.y - miniBoss.y);
+                    if (distance < miniBossClosestDistance && distance < attackRange) {
+                        miniBossClosestDistance = distance;
+                        miniBossTargetIndex = index;
+                    }
+                });
+
+                if (miniBossTargetIndex !== -1) {
+                    const hitMiniBoss = miniBosses[miniBossTargetIndex];
+                    
+                    // Check if mini-boss is currently protected
+                    if (Date.now() < hitMiniBoss.protectionEndTime) {
+                        // Mini-boss is protected, cannot be hit
+                        return;
+                    }
+                    
+                    hitMiniBoss.lives--;
+                    hitMiniBoss.hitFlash = Date.now();  // Start hit flash animation
+                    hitMiniBoss.protectionEndTime = Date.now() + 1500;  // 1.5 seconds of protection
+                    
+                    if (hitMiniBoss.lives <= 0) {
+                        miniBosses.splice(miniBossTargetIndex, 1);
+                        kills += 2;  // Mini-boss gives 2 kills
+                        money += 8;  // Mini-boss gives 8 money
+                        console.log("Mini-boss defeated!");
                     }
                 }
 
@@ -1380,6 +1551,7 @@
             projectiles.splice(0, projectiles.length);
             fireballs.splice(0, fireballs.length);
             poisonBottles.splice(0, poisonBottles.length);
+            miniBosses.splice(0, miniBosses.length);
             bossKilled = false;
             
             // Reset timer for new level
@@ -1435,6 +1607,7 @@
             projectiles.splice(0, projectiles.length);
             fireballs.splice(0, fireballs.length);
             poisonBottles.splice(0, poisonBottles.length);
+            miniBosses.splice(0, miniBosses.length);
             builtBlocks.splice(0, builtBlocks.length);
             enemySpawnInterval = 1000;
             enemiesToKillForLevel = 10;
@@ -1588,6 +1761,53 @@
                 ctx.textAlign = "start"; // Reset text alignment
             });
 
+            miniBosses.forEach(miniBoss => {
+                // Mini-boss hit flash effect
+                const timeSinceHit = Date.now() - miniBoss.hitFlash;
+                if (timeSinceHit < 300) {
+                    // Flash white for 300ms after being hit
+                    ctx.fillStyle = Math.floor(timeSinceHit / 50) % 2 === 0 ? "white" : miniBoss.color;
+                } else {
+                    ctx.fillStyle = miniBoss.color;
+                }
+                
+                // Draw mini-boss
+                ctx.fillRect(miniBoss.x, miniBoss.y, miniBoss.width, miniBoss.height);
+                
+                // Draw mini-boss health bar
+                const barWidth = miniBoss.width;
+                const barHeight = 3;
+                const healthRatio = miniBoss.lives / miniBoss.maxLives;
+                
+                // Background (red)
+                ctx.fillStyle = "red";
+                ctx.fillRect(miniBoss.x, miniBoss.y - 10, barWidth, barHeight);
+                
+                // Health (green)
+                ctx.fillStyle = "lime";
+                ctx.fillRect(miniBoss.x, miniBoss.y - 10, barWidth * healthRatio, barHeight);
+                
+                // Draw protection dome if mini-boss is protected
+                if (Date.now() < miniBoss.protectionEndTime) {
+                    const centerX = miniBoss.x + miniBoss.width / 2;
+                    const centerY = miniBoss.y + miniBoss.height / 2;
+                    const domeRadius = miniBoss.width * 0.8;
+                    
+                    // Draw dome outline
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, domeRadius, 0, 2 * Math.PI);
+                    ctx.strokeStyle = "cyan";
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    
+                    // Draw semi-transparent dome fill
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, domeRadius, 0, 2 * Math.PI);
+                    ctx.fillStyle = "rgba(0, 255, 255, 0.2)";
+                    ctx.fill();
+                }
+            });
+
             poisonBottles.forEach(poison => {
                 // Draw poison bottle as poison emoji
                 ctx.font = "18px Arial";
@@ -1655,6 +1875,7 @@
                 moveProjectiles();
                 moveFireballs();
                 movePoisonBottles();
+                moveMiniBosses();
                 attackEnemies();
                 draw();
 
