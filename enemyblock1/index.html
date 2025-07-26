@@ -456,6 +456,45 @@
         playerImage.onload = () => console.log('player.jpeg loaded successfully');
         playerImage.onerror = () => console.error('Failed to load player.jpeg');
         
+        // Red enemy image
+        const redEnemyImage = new Image();
+        redEnemyImage.src = 'red-enemy.jpeg';
+        redEnemyImage.onload = () => console.log('red-enemy.jpeg loaded successfully');
+        redEnemyImage.onerror = () => console.error('Failed to load red-enemy.jpeg');
+        
+        // Yellow enemy image
+        const yellowEnemyImage = new Image();
+        yellowEnemyImage.src = 'yellow-enemy.jpeg';
+        yellowEnemyImage.onload = () => console.log('yellow-enemy.jpeg loaded successfully');
+        yellowEnemyImage.onerror = () => console.error('Failed to load yellow-enemy.jpeg');
+        
+        // Boss images
+        const boss1Image = new Image();
+        boss1Image.src = 'boss1.jpeg';
+        boss1Image.onload = () => console.log('boss1.jpeg loaded successfully');
+        boss1Image.onerror = () => console.error('Failed to load boss1.jpeg');
+        
+        const boss2Image = new Image();
+        boss2Image.src = 'boss2.jpeg';
+        boss2Image.onload = () => console.log('boss2.jpeg loaded successfully');
+        boss2Image.onerror = () => console.error('Failed to load boss2.jpeg');
+        
+        const boss3Image = new Image();
+        boss3Image.src = 'boss3.jpeg';
+        boss3Image.onload = () => console.log('boss3.jpeg loaded successfully');
+        boss3Image.onerror = () => console.error('Failed to load boss3.jpeg');
+        
+        const boss4Image = new Image();
+        boss4Image.src = 'boss4.jpeg';
+        boss4Image.onload = () => console.log('boss4.jpeg loaded successfully');
+        boss4Image.onerror = () => console.error('Failed to load boss4.jpeg');
+        
+        // Mini-boss image
+        const miniBossImage = new Image();
+        miniBossImage.src = 'mini-boss.jpeg';
+        miniBossImage.onload = () => console.log('mini-boss.jpeg loaded successfully');
+        miniBossImage.onerror = () => console.error('Failed to load mini-boss.jpeg');
+        
         // Load background images
         backgroundImages.bkg1.src = 'bkg1.jpeg';
         backgroundImages.bkg2.src = 'bkg2.jpeg';
@@ -1699,15 +1738,30 @@
                 if (enemy.isBoss) {
                     // Boss hit flash effect
                     const timeSinceHit = Date.now() - enemy.hitFlash;
-                    if (timeSinceHit < 300) {
-                        // Flash white for 300ms after being hit
-                        ctx.fillStyle = Math.floor(timeSinceHit / 50) % 2 === 0 ? "white" : enemy.color;
-                    } else {
-                        ctx.fillStyle = enemy.color;
-                    }
+                    const shouldFlash = timeSinceHit < 300 && Math.floor(timeSinceHit / 50) % 2 === 0;
                     
-                    // Draw boss
-                    ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+                    // Draw boss - use images for specific levels, rectangle for others
+                    if (level === 5 && boss1Image.complete && !shouldFlash) {
+                        // Draw level 5 boss using image (normal state)
+                        ctx.drawImage(boss1Image, enemy.x, enemy.y, enemy.width, enemy.height);
+                    } else if (level === 10 && boss2Image.complete && !shouldFlash) {
+                        // Draw level 10 boss using image (normal state)
+                        ctx.drawImage(boss2Image, enemy.x, enemy.y, enemy.width, enemy.height);
+                    } else if (level === 15 && boss3Image.complete && !shouldFlash) {
+                        // Draw level 15 boss using image (normal state)
+                        ctx.drawImage(boss3Image, enemy.x, enemy.y, enemy.width, enemy.height);
+                    } else if (level === 20 && boss4Image.complete && !shouldFlash) {
+                        // Draw level 20 boss using image (normal state)
+                        ctx.drawImage(boss4Image, enemy.x, enemy.y, enemy.width, enemy.height);
+                    } else {
+                        // Draw boss as rectangle (flash effect or image not loaded)
+                        if (shouldFlash) {
+                            ctx.fillStyle = "white";
+                        } else {
+                            ctx.fillStyle = enemy.color;
+                        }
+                        ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+                    }
                     
                     // Draw boss health bar
                     const barWidth = enemy.width;
@@ -1742,9 +1796,18 @@
                         ctx.fill();
                     }
                 } else {
-                    // Regular enemy
-                    ctx.fillStyle = enemy.color;
-                    ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+                    // Regular enemy - use images for red and yellow enemies
+                    if (enemy.color === "red" && redEnemyImage.complete) {
+                        // Draw red enemy using image
+                        ctx.drawImage(redEnemyImage, enemy.x, enemy.y, enemy.width, enemy.height);
+                    } else if (enemy.color === "yellow" && yellowEnemyImage.complete) {
+                        // Draw yellow enemy using image
+                        ctx.drawImage(yellowEnemyImage, enemy.x, enemy.y, enemy.width, enemy.height);
+                    } else {
+                        // Fallback to colored rectangle if images not loaded
+                        ctx.fillStyle = enemy.color;
+                        ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+                    }
                 }
             });
 
@@ -1764,15 +1827,21 @@
             miniBosses.forEach(miniBoss => {
                 // Mini-boss hit flash effect
                 const timeSinceHit = Date.now() - miniBoss.hitFlash;
-                if (timeSinceHit < 300) {
-                    // Flash white for 300ms after being hit
-                    ctx.fillStyle = Math.floor(timeSinceHit / 50) % 2 === 0 ? "white" : miniBoss.color;
-                } else {
-                    ctx.fillStyle = miniBoss.color;
-                }
+                const shouldFlash = timeSinceHit < 300 && Math.floor(timeSinceHit / 50) % 2 === 0;
                 
-                // Draw mini-boss
-                ctx.fillRect(miniBoss.x, miniBoss.y, miniBoss.width, miniBoss.height);
+                // Draw mini-boss - use image when available and not flashing
+                if (miniBossImage.complete && !shouldFlash) {
+                    // Draw mini-boss using image (normal state)
+                    ctx.drawImage(miniBossImage, miniBoss.x, miniBoss.y, miniBoss.width, miniBoss.height);
+                } else {
+                    // Draw mini-boss as rectangle (flash effect or image not loaded)
+                    if (shouldFlash) {
+                        ctx.fillStyle = "white";
+                    } else {
+                        ctx.fillStyle = miniBoss.color;
+                    }
+                    ctx.fillRect(miniBoss.x, miniBoss.y, miniBoss.width, miniBoss.height);
+                }
                 
                 // Draw mini-boss health bar
                 const barWidth = miniBoss.width;
