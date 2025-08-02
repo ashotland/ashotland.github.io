@@ -393,7 +393,10 @@
         <button id="buyMoney">כסף +1 (50$)</button>
         <button id="buyHealth">חיים +1 (100$)</button>
         <button id="buyTime">זמן +10 שניות (25$)</button>
-        <button id="buyAttackDuration">תקיפה +1 שנייה (50$)</button>
+        <div id="purchaseHistory" style="margin: 15px 0; padding: 10px; background-color: rgba(255, 255, 255, 0.1); border-radius: 5px; display: none;">
+            <h3 style="margin: 0 0 10px 0; font-size: 18px; color: #ffdd44;">קניות בסיבוב זה:</h3>
+            <div id="purchaseList" style="font-size: 14px; line-height: 1.4;"></div>
+        </div>
         <button id="shopContinue">המשך</button>
     </div>
     <div id="victory">
@@ -559,8 +562,9 @@
         const buyMoneyButton = document.getElementById("buyMoney");
         const buyHealthButton = document.getElementById("buyHealth");
         const buyTimeButton = document.getElementById("buyTime");
-        const buyAttackDurationButton = document.getElementById("buyAttackDuration");
         const shopContinueButton = document.getElementById("shopContinue");
+        const purchaseHistoryDiv = document.getElementById("purchaseHistory");
+        const purchaseListDiv = document.getElementById("purchaseList");
         const levelDisplay = document.getElementById("level");
         const killsDisplay = document.getElementById("kills");
         const moneyDisplay = document.getElementById("money");
@@ -1298,6 +1302,9 @@
                     attackRange = Math.max(10, attackRange - 1);  // Reduce 1 range (minimum 10)
                     player.speed = Math.max(1, player.speed - 1);  // Reduce 1 speed (minimum 1)
                     playerSpeed = player.speed;  // Update player speed
+                    // Update currentValues to reflect the reduced stats
+                    currentValues.range = attackRange;
+                    currentValues.speed = player.speed;
                     poisonBottles.splice(index, 1);
                     if (player.hearts <= 0) {
                         player.hearts = 0;
@@ -1569,6 +1576,7 @@
             player.x = 50;
             player.y = canvas.height - 100;
             player.hearts = maxHearts;  // Use upgraded max hearts
+            currentValues.health = maxHearts;  // Keep currentValues in sync
             player.facingLeft = false;  // Reset facing direction
             hills.splice(0, hills.length);
             for (let i = 0; i < 10; i++) {
@@ -1683,8 +1691,16 @@
             moneyPrice = 50;
             healthPrice = 100;
             timePrice = 25;
-            attackDurationPrice = 50;
+            // Reset current values to starting values
+            currentValues = {
+                speed: 5,   // Reset to starting speed
+                range: 50,  // Reset to starting range
+                money: 5,   // Reset to starting money per kill
+                health: 3,  // Reset to starting max hearts
+                time: 70    // Reset to starting base level time
+            };
             updateShopPrices();  // Update shop prices after game reset
+            resetSessionPurchases();  // Reset purchase tracking
             // Don't start game loop automatically
         }
 
@@ -1965,6 +1981,7 @@
                 if (levelComplete) {
                     gameActive = false;
                     spawnEnemiesEnabled = false;
+                    resetSessionPurchases();  // Reset purchase tracking when opening shop
                     shopElement.style.display = "flex";
                 }
                 if (player.hearts > 0) {
@@ -1984,16 +2001,71 @@
         let moneyPrice = 50;
         let healthPrice = 100;
         let timePrice = 25;
-        let attackDurationPrice = 50;
+
+        // Track purchases in current shopping session
+        let currentSessionPurchases = {
+            speed: 0,
+            range: 0,
+            money: 0,
+            health: 0,
+            time: 0
+        };
+
+        // Track current total values (not just upgrades purchased)
+        let currentValues = {
+            speed: 5,   // Current player speed (starts at 5)
+            range: 50,  // Current attack range (starts at 50)  
+            money: 5,   // Current money per kill (starts at 5)
+            health: 3,  // Current max hearts (starts at 3)
+            time: 70    // Current base level time (starts at 70)
+        };
 
         // Function to update shop button text with current prices
         function updateShopPrices() {
-            buySpeedButton.textContent = `מהירות +1 (${speedPrice}$)`;
-            buyRangeButton.textContent = `טווח +1 (${rangePrice}$)`;
-            buyMoneyButton.textContent = `כסף +1 (${moneyPrice}$)`;
-            buyHealthButton.textContent = `חיים +1 (${healthPrice}$)`;
-            buyTimeButton.textContent = `זמן +10 שניות (${timePrice}$)`;
-            buyAttackDurationButton.textContent = `תקיפה +1 שנייה (${attackDurationPrice}$)`;
+            buySpeedButton.textContent = `מהירות +1 (${speedPrice}$) | יש לך: ${currentValues.speed}`;
+            buyRangeButton.textContent = `טווח +1 (${rangePrice}$) | יש לך: ${currentValues.range}`;
+            buyMoneyButton.textContent = `כסף +1 (${moneyPrice}$) | יש לך: ${currentValues.money}`;
+            buyHealthButton.textContent = `חיים +1 (${healthPrice}$) | יש לך: ${currentValues.health}`;
+            buyTimeButton.textContent = `זמן +10 שניות (${timePrice}$) | יש לך: ${currentValues.time}`;
+        }
+
+        // Function to update purchase history display
+        function updatePurchaseHistory() {
+            const purchases = [];
+            if (currentSessionPurchases.speed > 0) {
+                purchases.push(`מהירות: ${currentSessionPurchases.speed}`);
+            }
+            if (currentSessionPurchases.range > 0) {
+                purchases.push(`טווח: ${currentSessionPurchases.range}`);
+            }
+            if (currentSessionPurchases.money > 0) {
+                purchases.push(`כסף: ${currentSessionPurchases.money}`);
+            }
+            if (currentSessionPurchases.health > 0) {
+                purchases.push(`חיים: ${currentSessionPurchases.health}`);
+            }
+            if (currentSessionPurchases.time > 0) {
+                purchases.push(`זמן: ${currentSessionPurchases.time}`);
+            }
+
+            if (purchases.length > 0) {
+                purchaseListDiv.innerHTML = purchases.join('<br>');
+                purchaseHistoryDiv.style.display = 'block';
+            } else {
+                purchaseHistoryDiv.style.display = 'none';
+            }
+        }
+
+        // Function to reset current session purchases
+        function resetSessionPurchases() {
+            currentSessionPurchases = {
+                speed: 0,
+                range: 0,
+                money: 0,
+                health: 0,
+                time: 0
+            };
+            updatePurchaseHistory();
         }
 
         buySpeedButton.addEventListener("click", () => {
@@ -2002,9 +2074,12 @@
                 trackEvent('purchase', { item_name: 'speed_upgrade', value: speedPrice, currency: 'USD' }); // GA Event
                 speedPrice += 5;  // Increase price for next purchase
                 player.speed += 1;
+                currentSessionPurchases.speed += 1;  // Track purchase
+                currentValues.speed = player.speed;  // Update current value
                 moneyDisplay.textContent = `${money} $`;
                 playerSpeed = player.speed;
                 updateShopPrices();  // Update button text with new price
+                updatePurchaseHistory();  // Update purchase display
             }
         });
 
@@ -2014,9 +2089,12 @@
                 trackEvent('purchase', { item_name: 'range_upgrade', value: rangePrice, currency: 'USD' }); // GA Event
                 rangePrice += 5;  // Increase price for next purchase
                 attackRange += 10;
+                currentSessionPurchases.range += 1;  // Track purchase
+                currentValues.range = attackRange;  // Update current value
                 moneyDisplay.textContent = `${money} $`;
                 attackRange = attackRange;
                 updateShopPrices();  // Update button text with new price
+                updatePurchaseHistory();  // Update purchase display
             }
         });
 
@@ -2026,9 +2104,12 @@
                 trackEvent('purchase', { item_name: 'money_per_kill_upgrade', value: moneyPrice, currency: 'USD' }); // GA Event
                 moneyPrice += 5;  // Increase price for next purchase
                 moneyPerKill += 1;
+                currentSessionPurchases.money += 1;  // Track purchase
+                currentValues.money = moneyPerKill;  // Update current value
                 moneyDisplay.textContent = `${money} $`;
                 moneyPerKill = moneyPerKill;
                 updateShopPrices();  // Update button text with new price
+                updatePurchaseHistory();  // Update purchase display
             }
         });
 
@@ -2039,9 +2120,12 @@
                 healthPrice += 5;  // Increase price for next purchase
                 maxHearts += 1;  // Increase max hearts permanently
                 player.hearts = maxHearts;  // Set current hearts to new max
+                currentSessionPurchases.health += 1;  // Track purchase
+                currentValues.health = maxHearts;  // Update current value
                 moneyDisplay.textContent = `${money} $`;
                 heartsDisplay.textContent = '❤️'.repeat(player.hearts);
                 updateShopPrices();  // Update button text with new price
+                updatePurchaseHistory();  // Update purchase display
             }
         });
 
@@ -2052,25 +2136,17 @@
                 timePrice += 5;  // Increase price for next purchase
                 // Permanently increase base level time for all future levels
                 baseLevelTime += 10;
+                currentSessionPurchases.time += 1;  // Track purchase
+                currentValues.time = baseLevelTime;  // Update current value
                 moneyDisplay.textContent = `${money} $`;
                 updateShopPrices();  // Update button text with new price
-            }
-        });
-
-        buyAttackDurationButton.addEventListener("click", () => {
-            if (money >= attackDurationPrice) {
-                money -= attackDurationPrice;
-                trackEvent('purchase', { item_name: 'attack_duration_upgrade', value: attackDurationPrice, currency: 'USD' }); // GA Event
-                attackDurationPrice += 5;  // Increase price for next purchase
-                // Permanently increase attack duration by 1 second
-                attackDuration += 1000;
-                moneyDisplay.textContent = `${money} $`;
-                updateShopPrices();  // Update button text with new price
+                updatePurchaseHistory();  // Update purchase display
             }
         });
 
         shopContinueButton.addEventListener("click", () => {
             if (!gameActive) {
+                resetSessionPurchases();  // Reset purchase tracking
                 spawnEnemiesEnabled = true;
                 advanceLevel();
             }
