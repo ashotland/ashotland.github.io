@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EnemyBlock1 - by Alon S.</title>
+    <title>EnemyBlock1 - by Shotland Games</title>
     <link rel="icon" href="favicon.png" type="image/x-icon">
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-BXKSQPZ851"></script>
@@ -354,7 +354,7 @@
         <div class="welcome-content">
             <img src="favicon.png" alt="Game Icon" class="welcome-icon">
             <h1>EnemyBlock1</h1>
-            <p class="subtitle">by Alon S.</p>
+            <p class="subtitle">by Shotland Games</p>
             <div class="game-instructions">
                 <h3 style="margin-top: 0; color: #333;">🎮 איך לשחק</h3>
                 
@@ -610,6 +610,15 @@
         }
         // ------------------------------------
 
+        // --- Level-based Damage System ---
+        function getEnemyProjectileDamage() {
+            if (level >= 20) return 5;      // Level 20: 5 damage
+            if (level >= 16) return 3;      // Level 16-19: 3 damage  
+            if (level >= 11) return 2;      // Level 11-15: 2 damage
+            return 1;                       // Level 1-10: 1 damage
+        }
+        // ---------------------------------
+
         const player = {
             x: 50,
             y: canvas.height - 100,
@@ -650,6 +659,7 @@
             
             // Always spawn regular enemies
             for (let i = 0; i < level * 2; i++) {
+                const enemyLives = level >= 11 ? 2 : 1;  // 2 lives starting from level 11
                 enemies.push({
                     x: Math.random() * canvas.width,
                     y: Math.random() * canvas.height,
@@ -659,6 +669,10 @@
                     dx: Math.random() > 0.5 ? 1 : -1,
                     dy: Math.random() > 0.5 ? 1 : -1,
                     health: 10 + level * 2,
+                    lives: enemyLives,
+                    maxLives: enemyLives,
+                    hitFlash: 0,  // For hit animation
+                    protectionEndTime: 0,  // For protection after being hit
                     isFortified: false,
                     fortifyColor: "black",
                     isBoss: false
@@ -688,6 +702,7 @@
                     lastFireballShot: Date.now() - 8000,  // Initialize fireball shot time (start with 2s delay for testing)
                     lastPoisonShot: Date.now() - 8000,  // Initialize poison shot time (start with 2s delay for testing)
                     lastMiniBossSpawn: Date.now() - 8000,  // Initialize mini-boss spawn time (start with 2s delay for testing)
+                    miniBossSpawnCount: 0,  // Track how many times mini-bosses have been spawned
                     lives: bossLives,
                     maxLives: bossLives,
                     hitFlash: 0,  // For hit animation
@@ -719,6 +734,7 @@
             // Continue spawning regular enemies even on boss levels
             if (spawnEnemiesEnabled) {
                 const enemyColor = Math.random() > 0.5 ? "yellow" : "red";
+                const enemyLives = level >= 11 ? 2 : 1;  // 2 lives starting from level 11
                 const newEnemy = {
                     x: Math.random() * canvas.width,
                     y: Math.random() * canvas.height,
@@ -728,6 +744,10 @@
                     dx: Math.random() > 0.5 ? 1 : -1,
                     dy: Math.random() > 0.5 ? 1 : -1,
                     health: 10 + level * 2,
+                    lives: enemyLives,
+                    maxLives: enemyLives,
+                    hitFlash: 0,  // For hit animation
+                    protectionEndTime: 0,  // For protection after being hit
                     isBoss: false
                 };
                 enemies.push(newEnemy);
@@ -998,8 +1018,8 @@
                         const newFireballPos = {
                             x: enemy.x + enemy.width/2 + dir.dx * 10,
                             y: enemy.y + enemy.height/2 + dir.dy * 10,
-                            width: 12,
-                            height: 12
+                            width: 40,  // Much larger - almost boss size (boss is 45x45)
+                            height: 40
                         };
                         
                         for (let hill of hills) {
@@ -1017,14 +1037,14 @@
                             }
                         }
                         if (!fireballCollision) {
-                            console.log("Creating fireball in direction:", dir);
+                            console.log("Creating large fireball in direction:", dir);
                             fireballs.push({ 
-                                x: enemy.x + enemy.width/2, 
-                                y: enemy.y + enemy.height/2, 
+                                x: enemy.x + enemy.width/2 - 20, // Center the large fireball
+                                y: enemy.y + enemy.height/2 - 20, 
                                 dx: dir.dx, 
                                 dy: dir.dy,
-                                width: 12,
-                                height: 12
+                                width: 40,  // Much larger - almost boss size (boss is 45x45)
+                                height: 40
                             });
                         }
                     });
@@ -1066,7 +1086,7 @@
                             y: enemy.y + enemy.height/2, 
                             targetX: player.x + player.width/2,
                             targetY: player.y + player.height/2,
-                            speed: 2,
+                            speed: 4,  // Faster poison bottles
                             width: 15,
                             height: 15,
                             updateTargetTime: Date.now()
@@ -1074,13 +1094,15 @@
                     }
                 }
                 
-                // Level 20 boss mini-boss spawning (every 10 seconds, 2 mini-bosses)
+                // Level 20 boss mini-boss spawning (every 10 seconds, increasing number each time)
                 if (enemy.isBoss && level === 20 && Date.now() - enemy.lastMiniBossSpawn > 10000) {
-                    console.log("Level 20 boss spawning 2 mini-bosses!");
+                    enemy.miniBossSpawnCount++;  // Increment spawn count
+                    const miniBossesToSpawn = 1 + enemy.miniBossSpawnCount;  // 2 first time, 3 second time, 4 third time, etc.
+                    console.log(`Level 20 boss spawning ${miniBossesToSpawn} mini-bosses! (spawn #${enemy.miniBossSpawnCount})`);
                     enemy.lastMiniBossSpawn = Date.now();
                     
-                    // Spawn 2 mini-bosses
-                    for (let i = 0; i < 2; i++) {
+                    // Spawn increasing number of mini-bosses
+                    for (let i = 0; i < miniBossesToSpawn; i++) {
                         let spawnX, spawnY;
                         let attempts = 0;
                         
@@ -1103,8 +1125,8 @@
                             health: 30,  // Less health than main boss
                             isBoss: false,  // Not a main boss
                             isMiniBoss: true,
-                            lives: 2,
-                            maxLives: 2,
+                            lives: 3,  // Increased from 2 to 3 lives
+                            maxLives: 3,
                             hitFlash: 0,
                             protectionEndTime: 0,
                             lastShot: Date.now()
@@ -1179,11 +1201,13 @@
                     projectile.y < player.y + player.height &&
                     projectile.y + (projectile.height || 5) > player.y
                 ) {
-                    player.hearts--;
+                    const damage = getEnemyProjectileDamage();
+                    player.hearts -= damage;
                     projectiles.splice(index, 1);
+                    console.log(`Projectile hit! Damage: ${damage}, Hearts left: ${player.hearts}`);
                     if (player.hearts <= 0) {
-                        alert("Game Over!");
                         player.hearts = 0;
+                        showGameOver("נגמרו החיים!");
                     }
                 }
             });
@@ -1223,17 +1247,20 @@
                     fireballs.splice(index, 1);
                 }
 
-                // Fireball collision with player - deals 2 damage
+                // Fireball collision with player - deals level-based damage
                 if (
                     fireball.x < player.x + player.width &&
                     fireball.x + fireball.width > player.x &&
                     fireball.y < player.y + player.height &&
                     fireball.y + fireball.height > player.y
                 ) {
-                    player.hearts -= 2;  // Fireballs deal 2 damage
+                    const damage = getEnemyProjectileDamage();
+                    player.hearts -= damage;
                     fireballs.splice(index, 1);
+                    console.log(`Fireball hit! Damage: ${damage}, Hearts left: ${player.hearts}`);
                     if (player.hearts <= 0) {
                         player.hearts = 0;
+                        showGameOver("נגמרו החיים!");
                     }
                 }
             });
@@ -1295,14 +1322,14 @@
                     return;
                 }
 
-                // Poison bottle collision with player - deals 1 damage and reduces stats
+                // Poison bottle collision with player - deals 2 damage and heavily reduces stats
                 if (checkCollision(poison, player)) {
-                    console.log("Poison bottle hit player! Reducing stats...");
-                    player.hearts -= 1;  // Reduce 1 life
-                    attackRange = Math.max(10, attackRange - 1);  // Reduce 1 range (minimum 10)
+                    console.log("Poison bottle hit player! Heavily reducing stats...");
+                    player.hearts -= 2;  // Reduce 2 lives
+                    attackRange = Math.max(10, attackRange - 20);  // Reduce 20 range (minimum 10)
                     player.speed = Math.max(1, player.speed - 1);  // Reduce 1 speed (minimum 1)
                     playerSpeed = player.speed;  // Update player speed
-                    // Update currentValues to reflect the reduced stats
+                    // Update currentValues to reflect the permanently reduced stats
                     currentValues.range = attackRange;
                     currentValues.speed = player.speed;
                     poisonBottles.splice(index, 1);
@@ -1399,11 +1426,13 @@
 
                 // Check collision with player (mini-bosses deal damage on contact)
                 if (checkCollision(miniBoss, player)) {
-                    player.hearts--;
+                    const damage = getEnemyProjectileDamage();
+                    player.hearts -= damage;
                     miniBosses.splice(index, 1);
-                    console.log("Mini-boss hit player and was destroyed!");
+                    console.log(`Mini-boss hit player! Damage: ${damage}, Hearts left: ${player.hearts}`);
                     if (player.hearts <= 0) {
                         player.hearts = 0;
+                        showGameOver("נגמרו החיים!");
                     }
                 }
             });
@@ -1470,10 +1499,25 @@
                             trackEvent('boss_defeated', { level: level }); // GA Event
                         }
                     } else {
-                        enemies.splice(targetIndex, 1);
-                        kills++;
-                        money += moneyPerKill;
-                        console.log("Enemy killed!");
+                        // Handle regular enemies with lives system (level 11+)
+                        if (hitEnemy.lives && hitEnemy.lives > 1) {
+                            // Check if enemy is currently protected
+                            if (Date.now() < hitEnemy.protectionEndTime) {
+                                // Enemy is protected, cannot be hit
+                                return;
+                            }
+                            
+                            hitEnemy.lives--;
+                            hitEnemy.hitFlash = Date.now();  // Start hit flash animation
+                            hitEnemy.protectionEndTime = Date.now() + 1000;  // 1 second of protection (shorter than boss)
+                            console.log(`Enemy hit! Lives remaining: ${hitEnemy.lives}`);
+                        } else {
+                            // Enemy dies (either has 1 life originally or lost all lives)
+                            enemies.splice(targetIndex, 1);
+                            kills++;
+                            money += moneyPerKill;
+                            console.log("Enemy killed!");
+                        }
                     }
                 }
 
@@ -1812,17 +1856,62 @@
                         ctx.fill();
                     }
                 } else {
-                    // Regular enemy - use images for red and yellow enemies
-                    if (enemy.color === "red" && redEnemyImage.complete) {
-                        // Draw red enemy using image
-                        ctx.drawImage(redEnemyImage, enemy.x, enemy.y, enemy.width, enemy.height);
-                    } else if (enemy.color === "yellow" && yellowEnemyImage.complete) {
-                        // Draw yellow enemy using image
-                        ctx.drawImage(yellowEnemyImage, enemy.x, enemy.y, enemy.width, enemy.height);
+                    // Regular enemy - with hit flash effect for multi-life enemies
+                    const timeSinceHit = Date.now() - enemy.hitFlash;
+                    const shouldFlash = timeSinceHit < 300 && Math.floor(timeSinceHit / 50) % 2 === 0;
+                    
+                    if (!shouldFlash) {
+                        // Draw regular enemy using images
+                        if (enemy.color === "red" && redEnemyImage.complete) {
+                            // Draw red enemy using image
+                            ctx.drawImage(redEnemyImage, enemy.x, enemy.y, enemy.width, enemy.height);
+                        } else if (enemy.color === "yellow" && yellowEnemyImage.complete) {
+                            // Draw yellow enemy using image
+                            ctx.drawImage(yellowEnemyImage, enemy.x, enemy.y, enemy.width, enemy.height);
+                        } else {
+                            // Fallback to colored rectangle if images not loaded
+                            ctx.fillStyle = enemy.color;
+                            ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+                        }
                     } else {
-                        // Fallback to colored rectangle if images not loaded
-                        ctx.fillStyle = enemy.color;
+                        // Flash effect - draw white rectangle
+                        ctx.fillStyle = "white";
                         ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+                    }
+                    
+                    // Draw health bar for multi-life enemies (level 11+)
+                    if (enemy.lives && enemy.maxLives > 1) {
+                        const barWidth = enemy.width;
+                        const barHeight = 3;  // Smaller than boss health bar
+                        const healthRatio = enemy.lives / enemy.maxLives;
+                        
+                        // Background (red)
+                        ctx.fillStyle = "red";
+                        ctx.fillRect(enemy.x, enemy.y - 10, barWidth, barHeight);
+                        
+                        // Health (green)
+                        ctx.fillStyle = "lime";
+                        ctx.fillRect(enemy.x, enemy.y - 10, barWidth * healthRatio, barHeight);
+                    }
+                    
+                    // Draw protection dome if enemy is protected
+                    if (Date.now() < enemy.protectionEndTime) {
+                        const centerX = enemy.x + enemy.width / 2;
+                        const centerY = enemy.y + enemy.height / 2;
+                        const domeRadius = enemy.width * 0.6;  // Smaller than boss dome
+                        
+                        // Draw dome outline
+                        ctx.beginPath();
+                        ctx.arc(centerX, centerY, domeRadius, 0, 2 * Math.PI);
+                        ctx.strokeStyle = "lightblue";
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                        
+                        // Draw semi-transparent dome fill
+                        ctx.beginPath();
+                        ctx.arc(centerX, centerY, domeRadius, 0, 2 * Math.PI);
+                        ctx.fillStyle = "rgba(173, 216, 230, 0.3)";
+                        ctx.fill();
                     }
                 }
             });
@@ -1833,10 +1922,10 @@
             });
 
             fireballs.forEach(fireball => {
-                // Draw fireball as fire emoji
-                ctx.font = "16px Arial";
+                // Draw fireball as large fire emoji (almost boss size)
+                ctx.font = "40px Arial";  // Much larger to match the bigger fireball hitbox
                 ctx.textAlign = "center";
-                ctx.fillText("🔥", fireball.x + fireball.width/2, fireball.y + fireball.height - 2);
+                ctx.fillText("🔥", fireball.x + fireball.width/2, fireball.y + fireball.height - 5);
                 ctx.textAlign = "start"; // Reset text alignment
             });
 
@@ -1966,8 +2055,10 @@
 
                 enemies.forEach(enemy => {
                     if (enemy.color === "red" && checkCollision(player, enemy)) {
-                        player.hearts--;
+                        const damage = getEnemyProjectileDamage();
+                        player.hearts -= damage;
                         enemies.splice(enemies.indexOf(enemy), 1);
+                        console.log(`Red enemy hit! Damage: ${damage}, Hearts left: ${player.hearts}`);
                         if (player.hearts <= 0) {
                             showGameOver("נגמרו החיים!");
                         }
