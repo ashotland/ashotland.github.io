@@ -1818,13 +1818,12 @@
                         }
                     } else {
                         // Handle regular enemies with lives system (level 11+)
+                        // Check if enemy is currently protected
+                        if (Date.now() < hitEnemy.protectionEndTime) {
+                            // Enemy is protected, cannot be hit
+                            return;
+                        }
                         if (hitEnemy.lives && hitEnemy.lives > 1) {
-                            // Check if enemy is currently protected
-                            if (Date.now() < hitEnemy.protectionEndTime) {
-                                // Enemy is protected, cannot be hit
-                                return;
-                            }
-                            
                             hitEnemy.lives--;
                             hitEnemy.hitFlash = Date.now();  // Start hit flash animation
                             hitEnemy.protectionEndTime = Date.now() + 1000;  // 1 second of protection (shorter than boss)
