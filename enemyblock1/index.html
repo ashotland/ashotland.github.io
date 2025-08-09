@@ -413,6 +413,46 @@
         #controls button:active {
             background: rgba(255,255,255,0.5);
         }
+
+        /* --- User Zone --- */
+        #userZoneOverlay {
+            position: fixed;
+            inset: 0;
+            display: none;
+            background: rgba(0,0,0,0.4);
+            z-index: 1200;
+        }
+        #userZone {
+            position: absolute;
+            top: 4vh;
+            left: 50%;
+            transform: translateX(-50%);
+            width: min(1100px, 96vw);
+            max-height: 90vh;
+            overflow: auto;
+            background: #b8ffb8; /* very light green */
+            border-radius: 14px;
+            padding: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+        }
+        .uz-header { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+        .uz-username { display:flex; align-items:center; gap:10px; font-size:22px; font-weight:700; }
+        .uz-username img { width:40px; height:40px; border-radius:6px; border:3px solid #3aa3ff; }
+        .uz-counters { display:flex; align-items:center; gap:16px; font-size:18px; }
+        .uz-grid { display:grid; grid-template-columns: repeat(3,1fr); gap:14px; margin-top:16px; }
+        .uz-section { background:#7dff7d; border:3px solid #1e8f1e; border-radius:10px; padding:10px; }
+        .uz-section h3 { margin:4px 0 10px 0; }
+        .uz-cards { display:flex; flex-wrap:wrap; gap:10px; }
+        .uz-card { width:72px; height:72px; display:flex; align-items:center; justify-content:center; background:#fff; border-radius:10px; border:4px solid transparent; cursor:pointer; position:relative; }
+        .uz-card.locked { filter: grayscale(1) opacity(0.7); cursor:not-allowed; }
+        .uz-card.selected { border-color:#3aa3ff; }
+        .uz-lock { position:absolute; right:4px; top:2px; font-size:18px; }
+        .uz-footer { margin-top:14px; display:flex; justify-content:flex-end; }
+        .uz-btn { padding:10px 14px; background:#2196F3; color:#fff; border:none; border-radius:8px; cursor:pointer; font-weight:700; }
+        .uz-chest { display:flex; align-items:center; gap:10px; }
+        .uz-result { margin-top:10px; background:rgba(0,0,0,0.06); padding:10px; border-radius:8px; }
+        /* Keep locked colors vivid (no grayscale) */
+        #uzColors .uz-card.locked { filter: none; opacity: 1; }
     </style>
 </head>
 <body>
@@ -426,6 +466,42 @@
             <button id="loginBtn">התחברות</button>
             <button id="logoutBtn" style="display:none; background:#ff4444;">התנתקות</button>
             <button id="leaderboardToggle">טבלת מובילים</button>
+            <button id="userZoneOpen" style="background:#6a4;">אזור משתמש</button>
+        </div>
+    </div>
+    <div id="userZoneOverlay">
+        <div id="userZone">
+            <div class="uz-header">
+                <div class="uz-username"><img id="uzSelectedSkinImg" src="player.jpeg" alt="skin"/><span id="uzUsername">[username]</span></div>
+                <div class="uz-counters">
+                    <span>🪙 <span id="uzCoins">0</span></span>
+                    <span>💎 <span id="uzDiamonds">0</span></span>
+                    <button id="userZoneBack" class="uz-btn" style="background:#444;">חזור</button>
+                </div>
+            </div>
+            <div class="uz-grid">
+                <div class="uz-section">
+                    <h3>תמונת משתמש</h3>
+                    <div id="uzUserImages" class="uz-cards"></div>
+                </div>
+                <div class="uz-section">
+                    <h3>צבע</h3>
+                    <div id="uzColors" class="uz-cards"></div>
+                </div>
+                <div class="uz-section">
+                    <h3>סקינים</h3>
+                    <div id="uzSkins" class="uz-cards"></div>
+                </div>
+            </div>
+            <div class="uz-section" style="margin-top:14px;">
+                <h3>תיבות</h3>
+                <div class="uz-chest">
+                    <span style="font-size:28px;">🎊</span>
+                    <span>50 🪙</span>
+                    <button id="openSimpleChest" class="uz-btn">פתח</button>
+                </div>
+                <div id="uzResult" class="uz-result" style="display:none;"></div>
+            </div>
         </div>
     </div>
     <div id="leaderboardPanel">
@@ -557,6 +633,18 @@
         const leaderboardPanel = document.getElementById('leaderboardPanel');
         const leaderboardList = document.getElementById('leaderboardList');
         const leaderboardCloseBtn = document.getElementById('leaderboardClose');
+        const userZoneOverlay = document.getElementById('userZoneOverlay');
+        const userZoneOpenBtn = document.getElementById('userZoneOpen');
+        const userZoneBackBtn = document.getElementById('userZoneBack');
+        const uzUsername = document.getElementById('uzUsername');
+        const uzSelectedSkinImg = document.getElementById('uzSelectedSkinImg');
+        const uzCoinsEl = document.getElementById('uzCoins');
+        const uzDiamondsEl = document.getElementById('uzDiamonds');
+        const uzSkins = document.getElementById('uzSkins');
+        const uzColors = document.getElementById('uzColors');
+        const uzUserImages = document.getElementById('uzUserImages');
+        const openSimpleChestBtn = document.getElementById('openSimpleChest');
+        const uzResult = document.getElementById('uzResult');
 
         function formatSeconds(sec) {
             const m = Math.floor(sec / 60);
@@ -567,6 +655,93 @@
         function updateUserBarVisibility() {
             if (!userBar) return;
             userBar.style.display = gameActive ? 'none' : 'flex';
+        }
+
+        // --- User Profile State (stored in Firestore) ---
+        const defaultProfile = {
+            coins: 0,
+            diamonds: 0,
+            availableSkins: ['player.jpeg'],
+            selectedSkin: 'player.jpeg',
+            availableColors: ['black','white'],
+            selectedColor: 'black',
+            availableUserImages: ['player_left'], // first one uses player.jpeg
+            selectedUserImage: 'player_left'
+        };
+        let userProfile = { ...defaultProfile };
+
+        function colorToCss(c){
+            const map = { black: '#000', white:'#fff', blue:'#1976d2', red:'#d32f2f', green:'#2e7d32' };
+            return map[c] || c;
+        }
+
+        function renderUserZone() {
+            uzUsername.textContent = auth.currentUser?.displayName || auth.currentUser?.email || '[username]';
+            // Use selected user image: first one (player_left) uses player.jpeg
+            uzSelectedSkinImg.src = userProfile.selectedUserImage === 'player_left' ? 'player.jpeg' : (userProfile.selectedUserImage === 'emoji1' ? 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22><text y=%2230%22 font-size=%2230%22>🙂</text></svg>' : 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22><text y=%2230%22 font-size=%2230%22>😎</text></svg>');
+            uzCoinsEl.textContent = userProfile.coins || 0;
+            uzDiamondsEl.textContent = userProfile.diamonds || 0;
+            // Apply chosen color to display name
+            const cssColor = colorToCss(userProfile.selectedColor);
+            document.getElementById('uzUsername').style.color = cssColor;
+
+            // Skins
+            uzSkins.innerHTML = '';
+            userProfile.availableSkins.forEach(s => {
+                const el = document.createElement('div');
+                el.className = `uz-card ${userProfile.selectedSkin===s?'selected':''}`;
+                el.innerHTML = `<img src="player.jpeg" alt="skin" style="width:64px;height:64px;border-radius:8px;"/>`;
+                el.onclick = () => { userProfile.selectedSkin = s; renderUserZone(); saveUserProfile(); };
+                uzSkins.appendChild(el);
+            });
+
+            // Colors
+            const allColors = ['black','white','blue','red','green'];
+            uzColors.innerHTML = '';
+            allColors.forEach(c => {
+                const available = userProfile.availableColors.includes(c);
+                const el = document.createElement('div');
+                el.className = `uz-card ${userProfile.selectedColor===c?'selected':''} ${available?'':'locked'}`;
+                el.style.background = colorToCss(c);
+                if (!available) {
+                    el.innerHTML = `<span class="uz-lock">🔒</span>`;
+                }
+                el.onclick = () => {
+                    if (!available) return;
+                    userProfile.selectedColor = c; renderUserZone(); saveUserProfile();
+                };
+                uzColors.appendChild(el);
+            });
+
+            // User Images (first uses player.jpeg)
+            const allImgs = ['player_left','emoji1','emoji2'];
+            uzUserImages.innerHTML = '';
+            allImgs.forEach(id => {
+                const available = userProfile.availableUserImages.includes(id);
+                const el = document.createElement('div');
+                el.className = `uz-card ${userProfile.selectedUserImage===id?'selected':''} ${available?'':'locked'}`;
+                el.innerHTML = id==='player_left' ? '<img src="player.jpeg" style="width:64px;height:64px;border-radius:8px;"/>' : (id==='emoji1'?'🙂':'😎');
+                if (!available) el.innerHTML += `<span class="uz-lock">🔒</span>`;
+                el.onclick = () => { if (!available) return; userProfile.selectedUserImage = id; renderUserZone(); saveUserProfile(); };
+                uzUserImages.appendChild(el);
+            });
+        }
+
+        function showUserZone(){
+            renderUserZone();
+            userZoneOverlay.style.display = 'block';
+            // In user zone: show only back button in top bar
+            if (userBar) {
+                userBar.style.display = 'flex';
+                document.getElementById('authControls').style.display = 'none';
+            }
+        }
+        function hideUserZone(){
+            userZoneOverlay.style.display = 'none';
+            if (userBar) {
+                document.getElementById('authControls').style.display = '';
+                updateUserBarVisibility();
+            }
         }
 
         async function loadLeaderboard() {
@@ -583,9 +758,14 @@
                 snap.forEach(doc => {
                     const d = doc.data();
                     const isYou = currentUid && doc.id === currentUid;
+                    const prof = d.profile || {};
                     const name = d.displayName || d.email || 'שחקן';
+                    const color = prof.selectedColor ? `style=\"color:${(prof.selectedColor==='black')?'#000':(prof.selectedColor==='white')?'#fff':(prof.selectedColor==='blue')?'#1976d2':(prof.selectedColor==='red')?'#d32f2f':(prof.selectedColor==='green')?'#2e7d32':prof.selectedColor};\"` : '';
+                    const imgIcon = (prof.selectedUserImage==='player_left' || !prof.selectedUserImage)
+                        ? '<img src="player.jpeg" alt="img" style="width:20px;height:20px;border-radius:3px;vertical-align:middle;margin-left:6px;border:2px solid #3aa3ff;"/>'
+                        : (prof.selectedUserImage==='emoji1' ? '🙂' : '😎');
                     const time = (typeof d.bestTimeSeconds === 'number') ? formatSeconds(d.bestTimeSeconds) : '-';
-                    html += `<li class=\"${isYou ? 'youRow' : ''}\">#${rank++} · ${name} — שלב ${d.bestLevel || 0} · זמן ${time}</li>`;
+                    html += `<li class=\"${isYou ? 'youRow' : ''}\">#${rank++} · ${imgIcon} <span ${color}>${name}</span> — שלב ${d.bestLevel || 0} · זמן ${time}</li>`;
                 });
                 leaderboardList.innerHTML = html || '<li>עדיין אין נתונים</li>';
             } catch (e) {
@@ -609,9 +789,14 @@
                         let html = '';
                         rows.slice(0, 20).forEach((d, i) => {
                             const isYou = currentUid && d.id === currentUid;
+                            const prof = d.profile || {};
                             const name = d.displayName || d.email || 'שחקן';
+                            const color = prof.selectedColor ? `style=\\\"color:${(prof.selectedColor==='black')?'#000':(prof.selectedColor==='white')?'#fff':(prof.selectedColor==='blue')?'#1976d2':(prof.selectedColor==='red')?'#d32f2f':(prof.selectedColor==='green')?'#2e7d32':prof.selectedColor};\\\"` : '';
+                            const imgIcon = (prof.selectedUserImage==='player_left' || !prof.selectedUserImage)
+                                ? '<img src=\\\"player.jpeg\\\" alt=\\\"img\\\" style=\\\"width:20px;height:20px;border-radius:3px;vertical-align:middle;margin-left:6px;border:2px solid #3aa3ff;\\\"/>'
+                                : (prof.selectedUserImage==='emoji1' ? '🙂' : '😎');
                             const time = (typeof d.bestTimeSeconds === 'number') ? formatSeconds(d.bestTimeSeconds) : '-';
-                            html += `<li class=\"${isYou ? 'youRow' : ''}\">#${i + 1} · ${name} — שלב ${d.bestLevel || 0} · זמן ${time}</li>`;
+                            html += `<li class=\\\"${isYou ? 'youRow' : ''}\\\">#${i + 1} · ${imgIcon} <span ${color}>${name}</span> — שלב ${d.bestLevel || 0} · זמן ${time}</li>`;
                         });
                         leaderboardList.innerHTML = html || '<li>עדיין אין נתונים</li>';
                         const note = document.getElementById('leaderboardNote');
@@ -644,10 +829,29 @@
                     displayName: user.displayName || null,
                     bestLevel: 0,
                     bestTimeSeconds: 999999,
+                    profile: defaultProfile,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
             }
+        }
+
+        async function loadUserProfile(user){
+            const ref = db.collection('users').doc(user.uid);
+            const snap = await ref.get();
+            const data = snap.data() || {};
+            userProfile = { ...defaultProfile, ...(data.profile || {}) };
+        }
+
+        async function saveUserProfile(){
+            const user = auth.currentUser;
+            if (!user) return;
+            await db.collection('users').doc(user.uid).update({
+                profile: userProfile,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            // Reflect profile changes immediately where relevant
+            try { loadLeaderboard(); } catch {}
         }
 
         async function updateUserBest(finalLevel, totalSeconds) {
@@ -666,11 +870,11 @@
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
                 if (!snap.exists) {
-                    await ref.set({ ...base, bestLevel: finalLevel, bestTimeSeconds: totalSeconds, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+                    await ref.set({ ...base, bestLevel: finalLevel, bestTimeSeconds: totalSeconds, profile: userProfile, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
                 } else if (isBetter) {
-                    await ref.update({ ...base, bestLevel: finalLevel, bestTimeSeconds: totalSeconds });
+                    await ref.update({ ...base, bestLevel: finalLevel, bestTimeSeconds: totalSeconds, profile: userProfile });
                 } else {
-                    await ref.update(base);
+                    await ref.update({ ...base, profile: userProfile });
                 }
                 loadLeaderboard();
             } catch (e) {
@@ -685,6 +889,7 @@
                 loginBtn.style.display = 'none';
                 registerBtn.style.display = 'none';
                 await ensureUserDoc(user);
+                await loadUserProfile(user);
                 loadLeaderboard();
             } else {
                 authStatusEl.textContent = 'לא מחובר';
@@ -738,6 +943,8 @@
         leaderboardCloseBtn?.addEventListener('click', () => {
             leaderboardPanel.style.display = 'none';
         });
+        userZoneOpenBtn?.addEventListener('click', showUserZone);
+        userZoneBackBtn?.addEventListener('click', hideUserZone);
 
         function setCanvasSize() {
             canvas.width = window.innerWidth;
@@ -1910,6 +2117,11 @@
                 // Submit leaderboard time as sum of completed levels ONLY (exclude level 20)
                 const totalSeconds = cumulativeCompletedLevelSeconds;
                 updateUserBest(20, totalSeconds);
+                // Victory coin reward
+                if (auth.currentUser) {
+                    userProfile.coins = (userProfile.coins || 0) + 10;
+                    saveUserProfile();
+                }
                 victoryElement.style.display = "flex";
                 trackEvent('victory'); // GA Event
                 return;
@@ -1999,6 +2211,22 @@
             shopElement.style.display = "none";
             victoryElement.style.display = "none";
             updateUserBarVisibility();
+
+            // Show coins earned popup text in game over
+            let earned = 0;
+            if (level >= 20) earned = 10;
+            else if (level >= 15) earned = 6;
+            else if (level >= 10) earned = 3;
+            else if (level >= 5) earned = 1;
+            if (earned > 0 && auth.currentUser) {
+                // Update profile coins
+                userProfile.coins = (userProfile.coins || 0) + earned;
+                saveUserProfile();
+                const note = document.createElement('p');
+                note.textContent = `הרווחת ${earned} מטבעות!`;
+                note.style.marginTop = '10px';
+                document.getElementById('gameOverStats').appendChild(note);
+            }
         }
 
         function resetGame() {
@@ -2597,6 +2825,61 @@
             setInterval(spawnNewEnemy, enemySpawnInterval);
             updateUserBarVisibility();
             gameLoop();
+        });
+
+        // Chest logic
+        function pickChestReward() {
+            const r = Math.random();
+            if (r < 0.333) return { type: 'color' };
+            if (r < 0.666) return { type: 'userImage' };
+            // Diamonds breakdown
+            const d = Math.random();
+            if (d < 0.15) return { type: 'diamonds', amount: 2 };
+            if (d < 0.22) return { type: 'diamonds', amount: 1 };
+            if (d < 0.29) return { type: 'diamonds', amount: 3 };
+            if (d < 0.32) return { type: 'diamonds', amount: 4 };
+            return { type: 'diamonds', amount: 5 }; // ~1.4%
+        }
+        function unlockRandomFrom(listAll, listAvailable) {
+            const locked = listAll.filter(x => !listAvailable.includes(x));
+            if (locked.length === 0) return null;
+            return locked[Math.floor(Math.random()*locked.length)];
+        }
+        openSimpleChestBtn?.addEventListener('click', async () => {
+            if (!auth.currentUser) { alert('התחבר כדי לפתוח חבילה'); return; }
+            if ((userProfile.coins || 0) < 50) { alert('אין מספיק מטבעות'); return; }
+            if (!confirm('לפתוח תיבה פשוטה ב-50 מטבעות?')) return;
+            userProfile.coins -= 50;
+            const reward = pickChestReward();
+            let msg = '';
+            if (reward.type === 'color') {
+                const all = ['black','white','blue','red','green'];
+                const pick = unlockRandomFrom(all, userProfile.availableColors);
+                if (pick) {
+                    userProfile.availableColors.push(pick);
+                    msg = `צבע חדש נפתח: ${pick}`;
+                } else {
+                    msg = 'לא היו צבעים נעולים. הוחזרו 50 מטבעות';
+                    userProfile.coins += 50;
+                }
+            } else if (reward.type === 'userImage') {
+                const all = ['player_left','emoji1','emoji2'];
+                const pick = unlockRandomFrom(all, userProfile.availableUserImages);
+                if (pick) {
+                    userProfile.availableUserImages.push(pick);
+                    msg = 'תמונת משתמש חדשה נפתחה!';
+                } else {
+                    msg = 'לא היו תמונות נעולות. הוחזרו 50 מטבעות';
+                    userProfile.coins += 50;
+                }
+            } else if (reward.type === 'diamonds') {
+                userProfile.diamonds = (userProfile.diamonds || 0) + reward.amount;
+                msg = `קיבלת ${reward.amount} 💎!`;
+            }
+            await saveUserProfile();
+            uzResult.style.display = 'block';
+            uzResult.textContent = msg;
+            renderUserZone();
         });
     </script>
 </body>
