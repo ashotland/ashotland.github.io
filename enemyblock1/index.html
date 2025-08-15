@@ -519,6 +519,11 @@
                         <span>20 🪙</span>
                         <button id="openSimpleChest" class="uz-btn">פתח</button>
                     </div>
+                    <div class="uz-chest" style="margin-top: 10px;">
+                        <img src="diamonds_chest.png" alt="Diamonds Chest" style="width: 32px; height: 32px;"/>
+                        <span>30 🪙</span>
+                        <button id="openDiamondChest" class="uz-btn">פתח</button>
+                    </div>
                     <div id="uzResult" class="uz-result" style="display:none;"></div>
                 </div>
             </div>
@@ -664,6 +669,7 @@
         const uzColors = document.getElementById('uzColors');
         const uzUserImages = document.getElementById('uzUserImages');
         const openSimpleChestBtn = document.getElementById('openSimpleChest');
+        const openDiamondChestBtn = document.getElementById('openDiamondChest');
         const uzResult = document.getElementById('uzResult');
 
         function formatSeconds(sec) {
@@ -703,7 +709,7 @@
         function getUserImageSrc(id, size = 40) {
             const emojiMap = {
                 'emoji1': '🙂', 'emoji2': '😎', 'emoji_pizza': '🍕', 'emoji_crown': '👑',
-                'emoji_thinking': '🤔', 'emoji_exploding_head': '🤯', 'emoji_sad_but_relieved': '😥'
+                'emoji_thinking': '🤔', 'emoji_exploding_head': '🤯', 'emoji_sad_but_relieved': '😥', 'redEnemyImage':redEnemyImage , 'yellowEnemyImage':yellowEnemyImage, 'boss1Image':boss1Image ,'boss2Image':boss2Image ,'boss3Image': boss2Image ,'boss4Image': boss2Image
             };
             if (emojiMap[id]) {
                 const emoji = emojiMap[id];
@@ -730,8 +736,16 @@
             const allSkins = {
                 'player.jpeg': { name: 'Default', cost: 0 },
                 'upside-down': { name: 'Upside Down', cost: 30 },
-                'original-character': { name: 'Original Character', cost: 30 },
-                'ghost.png': { name: 'ghost', cost: 60 }
+                'original-character': { name: 'Original Character', cost: 25 },
+                'ghost.png': { name: 'ghost', cost: 40 },
+                'devil.png': { name: 'devil', cost: 65 },
+                'vampire.png': { name: 'vampire', cost: 20 },
+                'angel.png': { name: 'angel', cost: 50 },
+                'fallen_angel.png': { name: 'fallen_angel', cost: 70 },
+                'rainbow.png': { name: 'rainbow', cost: 30 },
+                'bandit.png': { name: 'bandit', cost: 25 },
+                'fire_knight.png': { name: 'fire knight', cost: 20 },
+                'ninja.png': { name: 'ninja', cost: 60 }
             };
 
             uzSkins.innerHTML = '';
@@ -1051,6 +1065,35 @@
         playerImage.src = 'player.jpeg';
         playerImage.onload = () => console.log('player.jpeg loaded successfully');
         playerImage.onerror = () => console.error('Failed to load player.jpeg');
+
+        const ghostImage = new Image();
+        ghostImage.src = 'ghost.png';
+        ghostImage.onload = () => console.log('ghost.png loaded successfully');
+        ghostImage.onerror = () => console.error('Failed to load ghost.png');
+
+        const fireKnightImage = new Image();
+        fireKnightImage.src = 'fire_knight.png';
+
+        const devilImage = new Image();
+        devilImage.src = 'devil.png';
+
+        const vampireImage = new Image();
+        vampireImage.src = 'vampire.png';
+
+        const angelImage = new Image();
+        angelImage.src = 'angel.png';
+
+        const fallen_angelImage = new Image();
+        fallen_angelImage.src = 'fallen_angel.png';
+
+        const ninjaImage = new Image();
+        ninjaImage.src = 'ninja.png';
+
+        const rainbowImage = new Image();
+        rainbowImage.src = 'rainbow.png';
+
+        const banditImage = new Image();
+        banditImage.src = 'bandit.png';
         
         // Red enemy image
         const redEnemyImage = new Image();
@@ -1090,6 +1133,9 @@
         miniBossImage.src = 'mini-boss.jpeg';
         miniBossImage.onload = () => console.log('mini-boss.jpeg loaded successfully');
         miniBossImage.onerror = () => console.error('Failed to load mini-boss.jpeg');
+        
+        const shurikenImage = new Image();
+        shurikenImage.src = 'shurikan.png';
         
         // Load background images
         backgroundImages.bkg1.src = 'bkg1.jpeg';
@@ -1197,6 +1243,7 @@
         let attackDuration = 3000;  // 3 seconds of attack (upgradeable)
         let spawnIntervalId = null;
         let reinforceIntervalId = null;
+        let rangeCircleOffset = 0;
 
         // --- Google Analytics Event Tracking ---
         function trackEvent(eventName, eventParams = {}) {
@@ -2116,7 +2163,7 @@
                         if (hitEnemy.lives && hitEnemy.lives > 1) {
                             hitEnemy.lives--;
                             hitEnemy.hitFlash = Date.now();  // Start hit flash animation
-                            hitEnemy.protectionEndTime = Date.now() + 200;  // 0.2 seconds of protection (shorter than boss)
+                            hitEnemy.protectionEndTime = Date.now() + 400;  // 0.4 seconds of protection (shorter than boss)
                             console.log(`Enemy hit! Lives remaining: ${hitEnemy.lives}`);
                         } else {
                             // Enemy dies (either has 1 life originally or lost all lives)
@@ -2449,6 +2496,24 @@
                     } else if (userProfile.selectedSkin === 'original-character') {
                         ctx.fillStyle = 'green';
                         ctx.fillRect(-player.width/2, -player.height/2, player.width, player.height);
+                    } else if (userProfile.selectedSkin === 'ghost.png') {
+                        ctx.drawImage(ghostImage, -player.width/2, -player.height/2, player.width, player.height);
+                    } else if (userProfile.selectedSkin === 'ninja.png') {
+                        ctx.drawImage(ninjaImage, -player.width/1.2, -player.height/1.7, player.width*1.8, player.height*1.3);
+                    } else if (userProfile.selectedSkin === 'fire_knight.png') {
+                        ctx.drawImage(fireKnightImage, -player.width/2, -player.height/2, player.width, player.height);
+                    } else if (userProfile.selectedSkin === 'devil.png') {
+                        ctx.drawImage(devilImage, -player.width/1, -player.height/1.5, player.width*2, player.height*1.5);
+                    } else if (userProfile.selectedSkin === 'rainbow.png') {
+                        ctx.drawImage(rainbowImage, -player.width/2, -player.height/2, player.width, player.height);
+                    } else if (userProfile.selectedSkin === 'bandit.png') {
+                        ctx.drawImage(banditImage, -player.width/2, -player.height/2, player.width, player.height);
+                    } else if (userProfile.selectedSkin === 'vampire.png') {
+                        ctx.drawImage(vampireImage, -player.width/2, -player.height/2, player.width, player.height);
+                    } else if (userProfile.selectedSkin === 'angel.png') {
+                        ctx.drawImage(angelImage, -player.width/1, -player.height/1.5, player.width*2, player.height*1.5);
+                    } else if (userProfile.selectedSkin === 'fallen_angel.png') {
+                        ctx.drawImage(fallen_angelImage, -player.width/1, -player.height/1.5, player.width*2, player.height*1.5);
                     }
                 } else {
                     player.color = 'green';
@@ -2684,10 +2749,72 @@
 
             // Only show attack circle when actively attacking
             if (keys["d"] && attackStartTime > 0 && !attackEnded) {
-                ctx.beginPath();
-                ctx.arc(player.x + player.width / 2, player.y + player.height / 2, attackRange, 0, 2 * Math.PI);
-                ctx.strokeStyle = "green";
-                ctx.stroke();
+                const elapsed = Date.now() - attackStartTime;
+                const angle = (elapsed / 500) * Math.PI * 2; // Full circle every 500ms
+                const shurikenX = player.x + player.width / 2 + Math.cos(angle) * attackRange;
+                const shurikenY = player.y + player.height / 2 + Math.sin(angle) * attackRange;
+
+                if (userProfile.selectedSkin === 'fallen_angel.png') {
+                    ctx.save();
+                    ctx.translate(player.x + player.width / 2, player.y + player.height / 2);
+                    ctx.rotate(0.5*angle);
+                    ctx.beginPath();
+                    ctx.arc(0, 0, attackRange, 0, Math.PI * 2);
+                    const gradient = ctx.createLinearGradient(-attackRange, -attackRange, attackRange, attackRange);
+                    gradient.addColorStop(0, 'black');
+                    gradient.addColorStop(1, 'red');
+                    ctx.strokeStyle = gradient;
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                    ctx.restore();
+                } else {
+                    ctx.beginPath();
+                    ctx.arc(player.x + player.width / 2, player.y + player.height / 2, attackRange, 0, 2 * Math.PI);
+                    if (userProfile.selectedSkin === 'ghost.png') {
+                        ctx.strokeStyle = "white";
+                    } else if (userProfile.selectedSkin === 'fire_knight.png') {
+                        const gradient = ctx.createLinearGradient(player.x, player.y, player.x + attackRange, player.y);
+                        gradient.addColorStop(0, "red");
+                        gradient.addColorStop(1, "orange");
+                        ctx.strokeStyle = gradient;
+                    } else if (userProfile.selectedSkin === 'devil.png') {
+                        const gradient = ctx.createLinearGradient(player.x, player.y, player.x + player.width, player.y + player.height);
+                        gradient.addColorStop(0, 'purple');
+                        gradient.addColorStop(0.5, 'red');
+                        gradient.addColorStop(1, 'black');
+                        ctx.strokeStyle = gradient;
+                    } else if (userProfile.selectedSkin === 'vampire.png') {
+                        const gradient = ctx.createLinearGradient(player.x, player.y, player.x + player.width, player.y + player.height);
+                        gradient.addColorStop(0, 'grey');
+                        gradient.addColorStop(1, 'black');
+                        ctx.strokeStyle = gradient;
+                    } else if (userProfile.selectedSkin === 'rainbow.png') {
+                        const gradient = ctx.createLinearGradient(player.x, player.y, player.x + player.width, player.y + player.height);
+                        gradient.addColorStop(0, 'red');
+                        gradient.addColorStop(0.05, 'orange');
+                        gradient.addColorStop(0.2, 'yellow');
+                        gradient.addColorStop(0.8, 'green');
+                        gradient.addColorStop(0.95, 'blue');
+                        gradient.addColorStop(1, 'purple');
+                        ctx.strokeStyle = gradient;
+                    } else if (userProfile.selectedSkin === 'ninja.png') {
+                        ctx.strokeStyle="grey";
+                    } else if (userProfile.selectedSkin === 'angel.png') {
+                        ctx.strokeStyle="yellow";
+                    } else {
+                        ctx.strokeStyle = "green";
+                    }
+                    ctx.stroke();
+
+                    // Draw shuriken
+                    if (userProfile.selectedSkin === 'ninja.png' && shurikenImage.complete) {
+                        ctx.save();
+                        ctx.translate(shurikenX, shurikenY);
+                        ctx.rotate(angle * 2); // Spin the shuriken
+                        ctx.drawImage(shurikenImage, -15, -15, 30, 30);
+                        ctx.restore();
+                    }
+                }
             }
             
             // Show attack duration bar only when attacking
@@ -2952,11 +3079,11 @@
         // Chest logic
         function pickChestReward() {
             const r = Math.random();
-            if (r < 0.334) { // 33.4% chance
+            if (r <= 0.334) { // 33.4% chance
                 return { type: 'color' };
-            } else if (r < 0.667) { // 33.3% chance (0.667 - 0.334)
+            } else if (r <= 0.667) { // 33.3% chance (0.667 - 0.334)
                 return { type: 'userImage' };
-            } else { // 33.3% chance
+            } else if( r<= 1.000) { // 33.3% chance
                 const amount = Math.floor(Math.random() * 5) + 1; // Random amount from 1 to 5
                 return { type: 'diamonds', amount: amount };
             }
@@ -2984,7 +3111,7 @@
                     userProfile.coins += 20;
                 }
             } else if (reward.type === 'userImage') {
-                const all = ['player_left','emoji1','emoji2'];
+                const all = ['player_left','emoji1','emoji2','emoji_pizza', 'emoji_crown', 'emoji_exploding_head emoji', 'emoji_sad_but_relieved', 'emoji_thinking', 'redEnemy', 'yellowEnemy', 'boss1' ,'boss2' ,'boss3' ,'boss4'];
                 const pick = unlockRandomFrom(all, userProfile.availableUserImages);
                 if (pick) {
                     userProfile.availableUserImages.push(pick);
@@ -3000,6 +3127,26 @@
             await saveUserProfile();
             uzResult.style.display = 'block';
             uzResult.textContent = msg;
+            renderUserZone();
+        });
+
+        openDiamondChestBtn?.addEventListener('click', async () => {
+            if (userProfile.coins < 30) {
+                alert("אין לך מספיק מטבעות!");
+                return;
+            }
+            if (!confirm("לפתוח תיבת יהלומים ב-30 מטבעות?")) return;
+
+            userProfile.coins -= 30;
+
+            const rewardValue = Math.floor(Math.random() * 20) + 1; // 1-20 diamonds
+            userProfile.diamonds = (userProfile.diamonds || 0) + rewardValue;
+            const rewardText = `קיבלת ${rewardValue} יהלומים! 💎`;
+
+            uzResult.textContent = rewardText;
+            uzResult.style.display = 'block';
+
+            await saveUserProfile();
             renderUserZone();
         });
     </script>
