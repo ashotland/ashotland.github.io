@@ -71,7 +71,7 @@
             top: 54px;
             right: 10px;
             width: min(420px, 92vw);
-            max-height: 70vh;
+            max-height: 320px; /* Adjusted to show ~5 entries + header/footer */
             overflow: auto;
             background: rgba(0,0,0,0.9);
             color: #fff;
@@ -427,19 +427,25 @@
             top: 4vh;
             left: 50%;
             transform: translateX(-50%);
-            width: min(1100px, 96vw);
+            width: min(1100px, 94vw);
             max-height: 90vh;
-            overflow: auto;
             background: #b8ffb8; /* very light green */
             border-radius: 14px;
             padding: 16px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+            display: flex;
+            flex-direction: column;
         }
         .uz-header { display:flex; align-items:center; justify-content:space-between; gap:12px; }
         .uz-username { display:flex; align-items:center; gap:10px; font-size:22px; font-weight:700; }
         .uz-username img { width:40px; height:40px; border-radius:6px; border:3px solid #3aa3ff; }
         .uz-counters { display:flex; align-items:center; gap:16px; font-size:18px; }
-        .uz-grid { display:grid; grid-template-columns: repeat(3,1fr); gap:14px; margin-top:16px; }
+        .uz-content-scrollable {
+            overflow-y: auto;
+            margin-top: 16px;
+            padding-right: 8px; /* space for scrollbar */
+        }
+        .uz-grid { display:grid; grid-template-columns: repeat(3,1fr); gap:14px; }
         .uz-section { background:#7dff7d; border:3px solid #1e8f1e; border-radius:10px; padding:10px; }
         .uz-section h3 { margin:4px 0 10px 0; }
         .uz-cards { display:flex; flex-wrap:wrap; gap:10px; }
@@ -447,6 +453,18 @@
         .uz-card.locked { filter: grayscale(1) opacity(0.7); cursor:not-allowed; }
         .uz-card.selected { border-color:#3aa3ff; }
         .uz-lock { position:absolute; right:4px; top:2px; font-size:18px; }
+        .uz-cost {
+            position: absolute;
+            bottom: 4px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 14px;
+            font-weight: bold;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
         .uz-footer { margin-top:14px; display:flex; justify-content:flex-end; }
         .uz-btn { padding:10px 14px; background:#2196F3; color:#fff; border:none; border-radius:8px; cursor:pointer; font-weight:700; }
         .uz-chest { display:flex; align-items:center; gap:10px; }
@@ -479,28 +497,35 @@
                     <button id="userZoneBack" class="uz-btn" style="background:#444;">חזור</button>
                 </div>
             </div>
-            <div class="uz-grid">
-                <div class="uz-section">
-                    <h3>תמונת משתמש</h3>
-                    <div id="uzUserImages" class="uz-cards"></div>
+            <div class="uz-content-scrollable">
+                <div class="uz-grid">
+                    <div class="uz-section">
+                        <h3>תמונת משתמש</h3>
+                        <div id="uzUserImages" class="uz-cards"></div>
+                    </div>
+                    <div class="uz-section">
+                        <h3>צבע</h3>
+                        <div id="uzColors" class="uz-cards"></div>
+                    </div>
+                    <div class="uz-section">
+                        <h3>סקינים</h3>
+                        <div id="uzSkins" class="uz-cards"></div>
+                    </div>
                 </div>
-                <div class="uz-section">
-                    <h3>צבע</h3>
-                    <div id="uzColors" class="uz-cards"></div>
+                <div class="uz-section" style="margin-top:14px;">
+                    <h3>תיבות</h3>
+                    <div class="uz-chest">
+                        <span style="font-size:28px;">🎊</span>
+                        <span>20 🪙</span>
+                        <button id="openSimpleChest" class="uz-btn">פתח</button>
+                    </div>
+                    <div class="uz-chest" style="margin-top: 10px;">
+                        <img src="diamonds_chest.png" alt="Diamonds Chest" style="width: 32px; height: 32px;"/>
+                        <span>30 🪙</span>
+                        <button id="openDiamondChest" class="uz-btn">פתח</button>
+                    </div>
+                    <div id="uzResult" class="uz-result" style="display:none;"></div>
                 </div>
-                <div class="uz-section">
-                    <h3>סקינים</h3>
-                    <div id="uzSkins" class="uz-cards"></div>
-                </div>
-            </div>
-            <div class="uz-section" style="margin-top:14px;">
-                <h3>תיבות</h3>
-                <div class="uz-chest">
-                    <span style="font-size:28px;">🎊</span>
-                    <span>50 🪙</span>
-                    <button id="openSimpleChest" class="uz-btn">פתח</button>
-                </div>
-                <div id="uzResult" class="uz-result" style="display:none;"></div>
             </div>
         </div>
     </div>
@@ -644,6 +669,7 @@
         const uzColors = document.getElementById('uzColors');
         const uzUserImages = document.getElementById('uzUserImages');
         const openSimpleChestBtn = document.getElementById('openSimpleChest');
+        const openDiamondChestBtn = document.getElementById('openDiamondChest');
         const uzResult = document.getElementById('uzResult');
 
         function formatSeconds(sec) {
@@ -671,14 +697,35 @@
         let userProfile = { ...defaultProfile };
 
         function colorToCss(c){
-            const map = { black: '#000', white:'#fff', blue:'#1976d2', red:'#d32f2f', green:'#2e7d32' };
+            const map = {
+                black: '#000', white:'#fff', blue:'#1976d2', red:'#d32f2f', green:'#2e7d32',
+                cyan: '#00BCD4', gold: '#FFD700', yellow: '#FFEB3B', orange: '#FF9800',
+                purple: '#9C27B0', pink: '#E91E63', brown: '#795548', grey: '#9E9E9E',
+                silver: '#C0C0C0', bwgradient: 'linear-gradient(to right, white, black)'
+            };
             return map[c] || c;
+        }
+
+        function getUserImageSrc(id, size = 40) {
+            const emojiMap = {
+                'emoji1': '🙂', 'emoji2': '😎', 'emoji_pizza': '🍕', 'emoji_crown': '👑',
+                'emoji_thinking': '🤔', 'emoji_exploding_head': '🤯', 'emoji_sad_but_relieved': '😥', 'redEnemyImage':redEnemyImage , 'yellowEnemyImage':yellowEnemyImage, 'boss1Image':boss1Image ,'boss2Image':boss2Image ,'boss3Image': boss2Image ,'boss4Image': boss2Image
+            };
+            if (emojiMap[id]) {
+                const emoji = emojiMap[id];
+                return `data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22${size}%22 height=%22${size}%22><text y=%22${size*0.75}%22 font-size=%22${size*0.75}%22>${emoji}</text></svg>`;
+            }
+            const imageMap = {
+                'player_left': 'player.jpeg', 'red_enemy': 'red-enemy.jpeg', 'yellow_enemy': 'yellow-enemy.jpeg',
+                'boss1': 'boss1.jpeg', 'boss2': 'boss2.jpeg', 'boss3': 'boss3.jpeg', 'boss4': 'boss4.jpeg', 'mini_boss': 'mini-boss.jpeg'
+            };
+            return imageMap[id] || 'player.jpeg'; // fallback
         }
 
         function renderUserZone() {
             uzUsername.textContent = auth.currentUser?.displayName || auth.currentUser?.email || '[username]';
-            // Use selected user image: first one (player_left) uses player.jpeg
-            uzSelectedSkinImg.src = userProfile.selectedUserImage === 'player_left' ? 'player.jpeg' : (userProfile.selectedUserImage === 'emoji1' ? 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22><text y=%2230%22 font-size=%2230%22>🙂</text></svg>' : 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22><text y=%2230%22 font-size=%2230%22>😎</text></svg>');
+            // Use selected user image
+            uzSelectedSkinImg.src = getUserImageSrc(userProfile.selectedUserImage, 40);
             uzCoinsEl.textContent = userProfile.coins || 0;
             uzDiamondsEl.textContent = userProfile.diamonds || 0;
             // Apply chosen color to display name
@@ -686,17 +733,63 @@
             document.getElementById('uzUsername').style.color = cssColor;
 
             // Skins
+            const allSkins = {
+                'player.jpeg': { name: 'Default', cost: 0 },
+                'upside-down': { name: 'Upside Down', cost: 30 },
+                'original-character': { name: 'Original Character', cost: 25 },
+                'ghost.png': { name: 'ghost', cost: 40 },
+                'devil.png': { name: 'devil', cost: 65 },
+                'vampire.png': { name: 'vampire', cost: 20 },
+                'angel.png': { name: 'angel', cost: 50 },
+                'fallen_angel.png': { name: 'fallen_angel', cost: 70 },
+                'rainbow.png': { name: 'rainbow', cost: 30 },
+                'bandit.png': { name: 'bandit', cost: 25 },
+                'fire_knight.png': { name: 'fire knight', cost: 20 },
+                'ninja.png': { name: 'ninja', cost: 60 }
+            };
+
             uzSkins.innerHTML = '';
-            userProfile.availableSkins.forEach(s => {
+            Object.keys(allSkins).forEach(skinId => {
+                const skin = allSkins[skinId];
+                const available = userProfile.availableSkins.includes(skinId);
                 const el = document.createElement('div');
-                el.className = `uz-card ${userProfile.selectedSkin===s?'selected':''}`;
-                el.innerHTML = `<img src="player.jpeg" alt="skin" style="width:64px;height:64px;border-radius:8px;"/>`;
-                el.onclick = () => { userProfile.selectedSkin = s; renderUserZone(); saveUserProfile(); };
+                el.className = `uz-card ${userProfile.selectedSkin === skinId ? 'selected' : ''} ${!available ? 'locked' : ''}`;
+
+                if (skinId === 'upside-down') {
+                    el.innerHTML = `<img src="player.jpeg" alt="skin" style="width:64px;height:64px;border-radius:8px; transform: rotate(180deg);"/>`;
+                } else if (skinId === 'original-character') {
+                    el.innerHTML = `<div style="width: 64px; height: 64px; background-color: green; border-radius: 8px;"></div>`;
+                } else {
+                    el.innerHTML = `<img src="${skinId}" alt="skin" style="width:64px;height:64px;border-radius:8px;"/>`;
+                }
+
+                if (!available) {
+                    el.innerHTML += `<div class="uz-lock">🔒</div><div class="uz-cost">${skin.cost} 💎</div>`;
+                }
+
+                el.onclick = () => {
+                    if (available) {
+                        userProfile.selectedSkin = skinId;
+                        renderUserZone();
+                        saveUserProfile();
+                    } else {
+                        if (confirm(`Buy ${skin.name} for ${skin.cost} diamonds?`)) {
+                            if (userProfile.diamonds >= skin.cost) {
+                                userProfile.diamonds -= skin.cost;
+                                userProfile.availableSkins.push(skinId);
+                                saveUserProfile();
+                                renderUserZone();
+                            } else {
+                                alert("Not enough diamonds!");
+                            }
+                        }
+                    }
+                };
                 uzSkins.appendChild(el);
             });
 
             // Colors
-            const allColors = ['black','white','blue','red','green'];
+            const allColors = ['black','white','blue','red','green', 'cyan', 'gold', 'yellow', 'orange', 'purple', 'pink', 'brown', 'grey', 'silver', 'bwgradient'];
             uzColors.innerHTML = '';
             allColors.forEach(c => {
                 const available = userProfile.availableColors.includes(c);
@@ -713,15 +806,22 @@
                 uzColors.appendChild(el);
             });
 
-            // User Images (first uses player.jpeg)
-            const allImgs = ['player_left','emoji1','emoji2'];
+            // User Images
+            const allImgs = [
+                'player_left', 'emoji1', 'emoji2', 'emoji_pizza', 'emoji_crown', 
+                'emoji_thinking', 'emoji_exploding_head', 'emoji_sad_but_relieved',
+                'red_enemy', 'yellow_enemy', 'boss1', 'boss2', 'boss3', 'boss4', 'mini_boss'
+            ];
             uzUserImages.innerHTML = '';
             allImgs.forEach(id => {
                 const available = userProfile.availableUserImages.includes(id);
                 const el = document.createElement('div');
                 el.className = `uz-card ${userProfile.selectedUserImage===id?'selected':''} ${available?'':'locked'}`;
-                el.innerHTML = id==='player_left' ? '<img src="player.jpeg" style="width:64px;height:64px;border-radius:8px;"/>' : (id==='emoji1'?'🙂':'😎');
-                if (!available) el.innerHTML += `<span class="uz-lock">🔒</span>`;
+                const imgSrc = getUserImageSrc(id, 64);
+                el.innerHTML = `<img src="${imgSrc}" alt="${id}" style="width:64px;height:64px;border-radius:8px;"/>`;
+                if (!available) {
+                    el.innerHTML += `<span class="uz-lock">🔒</span>`;
+                }
                 el.onclick = () => { if (!available) return; userProfile.selectedUserImage = id; renderUserZone(); saveUserProfile(); };
                 uzUserImages.appendChild(el);
             });
@@ -761,9 +861,8 @@
                     const prof = d.profile || {};
                     const name = d.displayName || d.email || 'שחקן';
                     const color = prof.selectedColor ? `style=\"color:${(prof.selectedColor==='black')?'#000':(prof.selectedColor==='white')?'#fff':(prof.selectedColor==='blue')?'#1976d2':(prof.selectedColor==='red')?'#d32f2f':(prof.selectedColor==='green')?'#2e7d32':prof.selectedColor};\"` : '';
-                    const imgIcon = (prof.selectedUserImage==='player_left' || !prof.selectedUserImage)
-                        ? '<img src="player.jpeg" alt="img" style="width:20px;height:20px;border-radius:3px;vertical-align:middle;margin-left:6px;border:2px solid #3aa3ff;"/>'
-                        : (prof.selectedUserImage==='emoji1' ? '🙂' : '😎');
+                    const imgSrc = getUserImageSrc(prof.selectedUserImage, 20);
+                    const imgIcon = `<img src="${imgSrc}" alt="img" style="width:20px;height:20px;border-radius:3px;vertical-align:middle;margin-left:6px;border:2px solid #3aa3ff;"/>`;
                     const time = (typeof d.bestTimeSeconds === 'number') ? formatSeconds(d.bestTimeSeconds) : '-';
                     html += `<li class=\"${isYou ? 'youRow' : ''}\">#${rank++} · ${imgIcon} <span ${color}>${name}</span> — שלב ${d.bestLevel || 0} · זמן ${time}</li>`;
                 });
@@ -966,6 +1065,35 @@
         playerImage.src = 'player.jpeg';
         playerImage.onload = () => console.log('player.jpeg loaded successfully');
         playerImage.onerror = () => console.error('Failed to load player.jpeg');
+
+        const ghostImage = new Image();
+        ghostImage.src = 'ghost.png';
+        ghostImage.onload = () => console.log('ghost.png loaded successfully');
+        ghostImage.onerror = () => console.error('Failed to load ghost.png');
+
+        const fireKnightImage = new Image();
+        fireKnightImage.src = 'fire_knight.png';
+
+        const devilImage = new Image();
+        devilImage.src = 'devil.png';
+
+        const vampireImage = new Image();
+        vampireImage.src = 'vampire.png';
+
+        const angelImage = new Image();
+        angelImage.src = 'angel.png';
+
+        const fallen_angelImage = new Image();
+        fallen_angelImage.src = 'fallen_angel.png';
+
+        const ninjaImage = new Image();
+        ninjaImage.src = 'ninja.png';
+
+        const rainbowImage = new Image();
+        rainbowImage.src = 'rainbow.png';
+
+        const banditImage = new Image();
+        banditImage.src = 'bandit.png';
         
         // Red enemy image
         const redEnemyImage = new Image();
@@ -1005,6 +1133,9 @@
         miniBossImage.src = 'mini-boss.jpeg';
         miniBossImage.onload = () => console.log('mini-boss.jpeg loaded successfully');
         miniBossImage.onerror = () => console.error('Failed to load mini-boss.jpeg');
+        
+        const shurikenImage = new Image();
+        shurikenImage.src = 'shurikan.png';
         
         // Load background images
         backgroundImages.bkg1.src = 'bkg1.jpeg';
@@ -1110,6 +1241,9 @@
         let attackStartTime = 0;
         let attackEnded = false;
         let attackDuration = 3000;  // 3 seconds of attack (upgradeable)
+        let spawnIntervalId = null;
+        let reinforceIntervalId = null;
+        let rangeCircleOffset = 0;
 
         // --- Google Analytics Event Tracking ---
         function trackEvent(eventName, eventParams = {}) {
@@ -1264,10 +1398,6 @@
                 enemies.push(newEnemy);
             }
         }
-        setInterval(() => {
-            reinforceEnemies();
-            spawnNewEnemy();
-        }, 4000);
 
         const keys = {};
         function updateKeyStateFromCode(e, isDown) {
@@ -2033,7 +2163,7 @@
                         if (hitEnemy.lives && hitEnemy.lives > 1) {
                             hitEnemy.lives--;
                             hitEnemy.hitFlash = Date.now();  // Start hit flash animation
-                            hitEnemy.protectionEndTime = Date.now() + 1000;  // 1 second of protection (shorter than boss)
+                            hitEnemy.protectionEndTime = Date.now() + 400;  // 0.4 seconds of protection (shorter than boss)
                             console.log(`Enemy hit! Lives remaining: ${hitEnemy.lives}`);
                         } else {
                             // Enemy dies (either has 1 life originally or lost all lives)
@@ -2194,8 +2324,9 @@
         }
 
         function showGameOver(reason) {
-            gameActive = false;
-            spawnEnemiesEnabled = false;
+            if (!gameActive) return; // Prevent multiple calls in the same frame
+            gameActive = false;             spawnEnemiesEnabled = false;
+            stopGameTimers(); // Stop all enemy spawning intervals
             trackEvent('game_over', { level: level, reason: reason }); // GA Event
             
             // Update final stats
@@ -2214,15 +2345,17 @@
 
             // Show coins earned popup text in game over
             let earned = 0;
-            if (level >= 20) earned = 10;
-            else if (level >= 15) earned = 6;
-            else if (level >= 10) earned = 3;
-            else if (level >= 5) earned = 1;
+            const completedLevel = level - 1; // Reward is for *completed* levels
+            if (completedLevel >= 20) earned = 10; // For completing level 20 (win condition)
+            else if (completedLevel >= 15) earned = 6;
+            else if (completedLevel >= 10) earned = 3;
+            else if (completedLevel >= 5) earned = 1;
             if (earned > 0 && auth.currentUser) {
                 // Update profile coins
                 userProfile.coins = (userProfile.coins || 0) + earned;
                 saveUserProfile();
                 const note = document.createElement('p');
+                note.id = 'gameOverCoinNote'; // Assign an ID for easy removal on reset
                 note.textContent = `הרווחת ${earned} מטבעות!`;
                 note.style.marginTop = '10px';
                 document.getElementById('gameOverStats').appendChild(note);
@@ -2230,6 +2363,10 @@
         }
 
         function resetGame() {
+            // Remove the coin reward note from the previous game over screen
+            const existingNote = document.getElementById('gameOverCoinNote');
+            if (existingNote) existingNote.remove();
+            stopGameTimers(); // Stop any running game timers
             level = 1;
             kills = 0;
             weaponDamage = 50;
@@ -2307,6 +2444,26 @@
             // Don't start game loop automatically
         }
 
+        function stopGameTimers() {
+            if (spawnIntervalId) clearInterval(spawnIntervalId);
+            if (reinforceIntervalId) clearInterval(reinforceIntervalId);
+            spawnIntervalId = null;
+            reinforceIntervalId = null;
+        }
+
+        function startGameTimers() {
+            stopGameTimers(); // Ensure no old timers are running
+
+            // Spawn a new enemy at a regular interval
+            spawnIntervalId = setInterval(spawnNewEnemy, enemySpawnInterval);
+
+            // Reinforce existing enemies and spawn another new one every 4 seconds
+            reinforceIntervalId = setInterval(() => {
+                reinforceEnemies();
+                spawnNewEnemy();
+            }, 4000);
+        }
+
         function drawChallenges() {
             ctx.fillStyle = "white";
             ctx.font = "16px Arial";
@@ -2329,7 +2486,39 @@
                 // Rotate based on player direction
                 ctx.rotate(player.rotation * Math.PI / 180);
                 // Draw player image centered
-                ctx.drawImage(playerImage, -player.width/2, -player.height/2, player.width, player.height);
+                if (userProfile.selectedSkin !== 'player.jpeg') {
+                    player.color = 'rgba(0,0,0,0)';
+                    if (userProfile.selectedSkin === 'upside-down') {
+                        ctx.save();
+                        ctx.rotate(Math.PI);
+                        ctx.drawImage(playerImage, -player.width/2, -player.height/2, player.width, player.height);
+                        ctx.restore();
+                    } else if (userProfile.selectedSkin === 'original-character') {
+                        ctx.fillStyle = 'green';
+                        ctx.fillRect(-player.width/2, -player.height/2, player.width, player.height);
+                    } else if (userProfile.selectedSkin === 'ghost.png') {
+                        ctx.drawImage(ghostImage, -player.width/2, -player.height/2, player.width, player.height);
+                    } else if (userProfile.selectedSkin === 'ninja.png') {
+                        ctx.drawImage(ninjaImage, -player.width/1.2, -player.height/1.7, player.width*1.8, player.height*1.3);
+                    } else if (userProfile.selectedSkin === 'fire_knight.png') {
+                        ctx.drawImage(fireKnightImage, -player.width/2, -player.height/2, player.width, player.height);
+                    } else if (userProfile.selectedSkin === 'devil.png') {
+                        ctx.drawImage(devilImage, -player.width/1, -player.height/1.5, player.width*2, player.height*1.5);
+                    } else if (userProfile.selectedSkin === 'rainbow.png') {
+                        ctx.drawImage(rainbowImage, -player.width/2, -player.height/2, player.width, player.height);
+                    } else if (userProfile.selectedSkin === 'bandit.png') {
+                        ctx.drawImage(banditImage, -player.width/2, -player.height/2, player.width, player.height);
+                    } else if (userProfile.selectedSkin === 'vampire.png') {
+                        ctx.drawImage(vampireImage, -player.width/2, -player.height/2, player.width, player.height);
+                    } else if (userProfile.selectedSkin === 'angel.png') {
+                        ctx.drawImage(angelImage, -player.width/1, -player.height/1.5, player.width*2, player.height*1.5);
+                    } else if (userProfile.selectedSkin === 'fallen_angel.png') {
+                        ctx.drawImage(fallen_angelImage, -player.width/1, -player.height/1.5, player.width*2, player.height*1.5);
+                    }
+                } else {
+                    player.color = 'green';
+                    ctx.drawImage(playerImage, -player.width/2, -player.height/2, player.width, player.height);
+                }
                 ctx.restore();
             } else {
                 // Fallback to rectangle if image not loaded
@@ -2560,10 +2749,72 @@
 
             // Only show attack circle when actively attacking
             if (keys["d"] && attackStartTime > 0 && !attackEnded) {
-                ctx.beginPath();
-                ctx.arc(player.x + player.width / 2, player.y + player.height / 2, attackRange, 0, 2 * Math.PI);
-                ctx.strokeStyle = "green";
-                ctx.stroke();
+                const elapsed = Date.now() - attackStartTime;
+                const angle = (elapsed / 500) * Math.PI * 2; // Full circle every 500ms
+                const shurikenX = player.x + player.width / 2 + Math.cos(angle) * attackRange;
+                const shurikenY = player.y + player.height / 2 + Math.sin(angle) * attackRange;
+
+                if (userProfile.selectedSkin === 'fallen_angel.png') {
+                    ctx.save();
+                    ctx.translate(player.x + player.width / 2, player.y + player.height / 2);
+                    ctx.rotate(0.5*angle);
+                    ctx.beginPath();
+                    ctx.arc(0, 0, attackRange, 0, Math.PI * 2);
+                    const gradient = ctx.createLinearGradient(-attackRange, -attackRange, attackRange, attackRange);
+                    gradient.addColorStop(0, 'black');
+                    gradient.addColorStop(1, 'red');
+                    ctx.strokeStyle = gradient;
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                    ctx.restore();
+                } else {
+                    ctx.beginPath();
+                    ctx.arc(player.x + player.width / 2, player.y + player.height / 2, attackRange, 0, 2 * Math.PI);
+                    if (userProfile.selectedSkin === 'ghost.png') {
+                        ctx.strokeStyle = "white";
+                    } else if (userProfile.selectedSkin === 'fire_knight.png') {
+                        const gradient = ctx.createLinearGradient(player.x, player.y, player.x + attackRange, player.y);
+                        gradient.addColorStop(0, "red");
+                        gradient.addColorStop(1, "orange");
+                        ctx.strokeStyle = gradient;
+                    } else if (userProfile.selectedSkin === 'devil.png') {
+                        const gradient = ctx.createLinearGradient(player.x, player.y, player.x + player.width, player.y + player.height);
+                        gradient.addColorStop(0, 'purple');
+                        gradient.addColorStop(0.5, 'red');
+                        gradient.addColorStop(1, 'black');
+                        ctx.strokeStyle = gradient;
+                    } else if (userProfile.selectedSkin === 'vampire.png') {
+                        const gradient = ctx.createLinearGradient(player.x, player.y, player.x + player.width, player.y + player.height);
+                        gradient.addColorStop(0, 'grey');
+                        gradient.addColorStop(1, 'black');
+                        ctx.strokeStyle = gradient;
+                    } else if (userProfile.selectedSkin === 'rainbow.png') {
+                        const gradient = ctx.createLinearGradient(player.x, player.y, player.x + player.width, player.y + player.height);
+                        gradient.addColorStop(0, 'red');
+                        gradient.addColorStop(0.05, 'orange');
+                        gradient.addColorStop(0.2, 'yellow');
+                        gradient.addColorStop(0.8, 'green');
+                        gradient.addColorStop(0.95, 'blue');
+                        gradient.addColorStop(1, 'purple');
+                        ctx.strokeStyle = gradient;
+                    } else if (userProfile.selectedSkin === 'ninja.png') {
+                        ctx.strokeStyle="grey";
+                    } else if (userProfile.selectedSkin === 'angel.png') {
+                        ctx.strokeStyle="yellow";
+                    } else {
+                        ctx.strokeStyle = "green";
+                    }
+                    ctx.stroke();
+
+                    // Draw shuriken
+                    if (userProfile.selectedSkin === 'ninja.png' && shurikenImage.complete) {
+                        ctx.save();
+                        ctx.translate(shurikenX, shurikenY);
+                        ctx.rotate(angle * 2); // Spin the shuriken
+                        ctx.drawImage(shurikenImage, -15, -15, 30, 30);
+                        ctx.restore();
+                    }
+                }
             }
             
             // Show attack duration bar only when attacking
@@ -2804,13 +3055,11 @@
 
         playAgainButton.addEventListener("click", () => {
             victoryElement.style.display = "none";
-            spawnEnemiesEnabled = true;
             resetGame();
         });
 
         restartGameButton.addEventListener("click", () => {
             gameOverElement.style.display = "none";
-            spawnEnemiesEnabled = true;
             resetGame();
         });
 
@@ -2822,7 +3071,7 @@
             gameSessionStart = Date.now();
             updateShopPrices();  // Set initial shop prices
             trackEvent('game_start'); // GA Event
-            setInterval(spawnNewEnemy, enemySpawnInterval);
+            startGameTimers();
             updateUserBarVisibility();
             gameLoop();
         });
@@ -2830,15 +3079,14 @@
         // Chest logic
         function pickChestReward() {
             const r = Math.random();
-            if (r < 0.333) return { type: 'color' };
-            if (r < 0.666) return { type: 'userImage' };
-            // Diamonds breakdown
-            const d = Math.random();
-            if (d < 0.15) return { type: 'diamonds', amount: 2 };
-            if (d < 0.22) return { type: 'diamonds', amount: 1 };
-            if (d < 0.29) return { type: 'diamonds', amount: 3 };
-            if (d < 0.32) return { type: 'diamonds', amount: 4 };
-            return { type: 'diamonds', amount: 5 }; // ~1.4%
+            if (r <= 0.334) { // 33.4% chance
+                return { type: 'color' };
+            } else if (r <= 0.667) { // 33.3% chance (0.667 - 0.334)
+                return { type: 'userImage' };
+            } else if( r<= 1.000) { // 33.3% chance
+                const amount = Math.floor(Math.random() * 5) + 1; // Random amount from 1 to 5
+                return { type: 'diamonds', amount: amount };
+            }
         }
         function unlockRandomFrom(listAll, listAvailable) {
             const locked = listAll.filter(x => !listAvailable.includes(x));
@@ -2847,30 +3095,30 @@
         }
         openSimpleChestBtn?.addEventListener('click', async () => {
             if (!auth.currentUser) { alert('התחבר כדי לפתוח חבילה'); return; }
-            if ((userProfile.coins || 0) < 50) { alert('אין מספיק מטבעות'); return; }
-            if (!confirm('לפתוח תיבה פשוטה ב-50 מטבעות?')) return;
-            userProfile.coins -= 50;
+            if ((userProfile.coins || 0) < 20) { alert('אין מספיק מטבעות'); return; }
+            if (!confirm('לפתוח תיבה פשוטה ב-20 מטבעות?')) return;
+            userProfile.coins -= 20;
             const reward = pickChestReward();
             let msg = '';
             if (reward.type === 'color') {
-                const all = ['black','white','blue','red','green'];
+                const all = ['black','white','blue','red','green', 'cyan', 'gold', 'yellow', 'orange', 'purple', 'pink', 'brown', 'grey', 'silver', 'bwgradient'];
                 const pick = unlockRandomFrom(all, userProfile.availableColors);
                 if (pick) {
                     userProfile.availableColors.push(pick);
                     msg = `צבע חדש נפתח: ${pick}`;
                 } else {
-                    msg = 'לא היו צבעים נעולים. הוחזרו 50 מטבעות';
-                    userProfile.coins += 50;
+                    msg = 'לא היו צבעים נעולים. הוחזרו 20 מטבעות';
+                    userProfile.coins += 20;
                 }
             } else if (reward.type === 'userImage') {
-                const all = ['player_left','emoji1','emoji2'];
+                const all = ['player_left','emoji1','emoji2','emoji_pizza', 'emoji_crown', 'emoji_exploding_head emoji', 'emoji_sad_but_relieved', 'emoji_thinking', 'redEnemy', 'yellowEnemy', 'boss1' ,'boss2' ,'boss3' ,'boss4'];
                 const pick = unlockRandomFrom(all, userProfile.availableUserImages);
                 if (pick) {
                     userProfile.availableUserImages.push(pick);
                     msg = 'תמונת משתמש חדשה נפתחה!';
                 } else {
-                    msg = 'לא היו תמונות נעולות. הוחזרו 50 מטבעות';
-                    userProfile.coins += 50;
+                    msg = 'לא היו תמונות נעולות. הוחזרו 20 מטבעות';
+                    userProfile.coins += 20;
                 }
             } else if (reward.type === 'diamonds') {
                 userProfile.diamonds = (userProfile.diamonds || 0) + reward.amount;
@@ -2879,6 +3127,26 @@
             await saveUserProfile();
             uzResult.style.display = 'block';
             uzResult.textContent = msg;
+            renderUserZone();
+        });
+
+        openDiamondChestBtn?.addEventListener('click', async () => {
+            if (userProfile.coins < 30) {
+                alert("אין לך מספיק מטבעות!");
+                return;
+            }
+            if (!confirm("לפתוח תיבת יהלומים ב-30 מטבעות?")) return;
+
+            userProfile.coins -= 30;
+
+            const rewardValue = Math.floor(Math.random() * 20) + 1; // 1-20 diamonds
+            userProfile.diamonds = (userProfile.diamonds || 0) + rewardValue;
+            const rewardText = `קיבלת ${rewardValue} יהלומים! 💎`;
+
+            uzResult.textContent = rewardText;
+            uzResult.style.display = 'block';
+
+            await saveUserProfile();
             renderUserZone();
         });
     </script>
