@@ -96,15 +96,15 @@
 
     function SimulatorApp() {
       // Input States
-      const [numShards, setNumShards] = useState(3);
+      const [numShards, setNumShards] = useState(10);
       const [numNodesPerShard, setNumNodesPerShard] = useState(3);
-      const [maxMemory, setMaxMemory] = useState('13.07');
-      const [peakMemory, setPeakMemory] = useState('10.5');
+      const [maxMemory, setMaxMemory] = useState('26.32');
+      const [peakMemory, setPeakMemory] = useState('24.7');
       const [memoryUtil, setMemoryUtil] = useState(0.95);
 
       // Constants
       const DRAGONFLY_MEMORY_FACTOR = 0.7;
-      const DISCOUNT_RATE = 0.25;
+      const DISCOUNT_RATE = 0.20;
 
       // Parsed Values
       const parsedMaxMemory = parseFloat(maxMemory) || 0;
@@ -114,16 +114,75 @@
       const competitorInstanceSize = getNextPowerOf2(parsedMaxMemory);
       const competitorProvisionedGiB = competitorInstanceSize * numShards * numNodesPerShard;
 
-      // Dragonfly Calculations
-      const rawDragonflyRequired = parsedPeakMemory * DRAGONFLY_MEMORY_FACTOR * (1 / memoryUtil);
-      const dragonflyRequiredMemory = getNextPowerOf2(rawDragonflyRequired);
-      const dragonflyInstanceSize = getNextPowerOf2(dragonflyRequiredMemory);
-      const dragonflyProvisionedGB = dragonflyInstanceSize * numShards * Math.min(2, numNodesPerShard);
+      // Dragonfly Calculations - Shard Consolidation & Discrete Node Sizes
+      const rawRequiredPerShard = parsedPeakMemory * DRAGONFLY_MEMORY_FACTOR * (1 / memoryUtil);
+      const totalRawRequired = rawRequiredPerShard * numShards; // Total usable memory (masters only)
+      
+      // Only allow > 100GB nodes if total usable memory (masters only) is > 2000GB
+      const availableSizes = [6.25, 12.5, 25, 50, 100, 200].filter(size => size <= 100 || totalRawRequired > 2000);
+      
+      // 1. Find the absolute minimum possible billable GB across all configurations
+      let minBillable = Infinity;
+      availableSizes.forEach(size => {
+        const proposedShards = Math.ceil(totalRawRequired / size);
+        const billableGB = proposedShards * size * Math.min(2, numNodesPerShard);
+        if (billableGB < minBillable) {
+          minBillable = billableGB;
+        }
+      });
+
+      // 2. Prefer fewer shards (larger nodes) even if it costs slightly more memory (up to 15% tolerance)
+      let bestScenario = null;
+      const TOLERANCE = 1.15;
+
+      availableSizes.forEach(size => {
+        const proposedShards = Math.ceil(totalRawRequired / size);
+        const billableGB = proposedShards * size * Math.min(2, numNodesPerShard);
+
+        if (billableGB <= minBillable * TOLERANCE) {
+          if (!bestScenario || proposedShards < bestScenario.shards || (proposedShards === bestScenario.shards && billableGB < bestScenario.billableGB)) {
+            bestScenario = { size, shards: proposedShards, billableGB };
+          }
+        }
+      });
+
+      const dragonflyNodeSize = bestScenario.size;
+      const optimalDragonflyShards = bestScenario.shards;
+      const dragonflyChargeGB = bestScenario.billableGB;
 
       // Savings Calculation
-      const dragonflyEquivalentCostGiB = dragonflyProvisionedGB * (1 - DISCOUNT_RATE);
+      const dragonflyEquivalentCostGiB = dragonflyChargeGB * (1 - DISCOUNT_RATE);
       const savingsFraction = competitorProvisionedGiB > 0 ? 1 - (dragonflyEquivalentCostGiB / competitorProvisionedGiB) : 0;
       const savingsPercent = Math.max(0, savingsFraction * 100);
+
+      // --- Debugging / Intermediate Calculations Log ---
+      console.groupCollapsed('Dragonfly Simulator Intermediate Calculations');
+      console.log('1. Parsed Inputs:', { maxMemory: parsedMaxMemory, peakMemory: parsedPeakMemory, memoryUtil });
+      console.log('2. Competitor Setup:', { 
+        competitorInstanceSize, 
+        competitorProvisionedGiB: `${competitorInstanceSize} GiB/node * ${numShards} shards * ${numNodesPerShard} nodes = ${competitorProvisionedGiB} GiB` 
+      });
+      console.log('3. Dragonfly Raw Memory Needed:', { 
+        rawRequiredPerShard, 
+        totalRawRequired: `${rawRequiredPerShard} GiB * ${numShards} shards = ${totalRawRequired} GiB (masters only)` 
+      });
+      console.log('4. Available Node Sizes:', availableSizes);
+      console.log('5. Minimum Possible Billable GB:', minBillable);
+      console.log(`6. Scenario Evaluation (15% Tolerance limit = ${minBillable * TOLERANCE}):`);
+      availableSizes.forEach(size => {
+        const proposedShards = Math.ceil(totalRawRequired / size);
+        const billableGB = proposedShards * size * Math.min(2, numNodesPerShard);
+        const isWithinTolerance = billableGB <= minBillable * TOLERANCE;
+        console.log(`   - Size: ${size}GB -> ${proposedShards} shards | Billable: ${billableGB}GB | Within Tolerance? ${isWithinTolerance}`);
+      });
+      console.log('7. Selected Best Scenario:', bestScenario);
+      console.log('8. Cost Savings Math:', {
+        dragonflyChargeGB,
+        dragonflyEquivalentCostGiB,
+        savingsFraction,
+        savingsPercent: savingsPercent.toFixed(2) + '%'
+      });
+      console.groupEnd();
 
       return (
         <div className="min-h-screen p-4 md:p-8 font-sans text-slate-800 flex items-center justify-center">
@@ -136,7 +195,7 @@
                 <h1 className="text-2xl md:text-3xl font-bold">Dragonfly Cloud Cost Saving Simulator</h1>
               </div>
               <p className="text-slate-400 max-w-2xl text-sm md:text-base">
-                Calculate your potential infrastructure savings by migrating from Redis/Valkey to Dragonfly Cloud. Dragonfly's vertical scaling and optimized memory footprint drastically reduce provisioned hardware.
+                Calculate your potential total cost savings by migrating from Redis/Valkey to Dragonfly Cloud.
               </p>
             </div>
 
@@ -199,7 +258,7 @@
                         type="number" step="0.01" min="0"
                         value={maxMemory} onChange={(e) => setMaxMemory(e.target.value)}
                         className="w-full p-2 border border-slate-300 rounded-lg bg-white text-slate-900 focus:ring-2 focus:ring-teal-500 outline-none transition-shadow pr-12"
-                        placeholder="e.g. 13.07"
+                        placeholder="e.g. 26.32"
                       />
                       <span className="absolute right-3 top-2.5 text-slate-400 text-sm pointer-events-none">GiB</span>
                     </div>
@@ -216,7 +275,7 @@
                         type="number" step="0.01" min="0"
                         value={peakMemory} onChange={(e) => setPeakMemory(e.target.value)}
                         className="w-full p-2 border border-slate-300 rounded-lg bg-white text-slate-900 focus:ring-2 focus:ring-teal-500 outline-none transition-shadow pr-12"
-                        placeholder="e.g. 10.50"
+                        placeholder="e.g. 24.70"
                       />
                       <span className="absolute right-3 top-2.5 text-slate-400 text-sm pointer-events-none">GiB</span>
                     </div>
@@ -227,9 +286,11 @@
                 <div className="mt-8 p-4 bg-teal-50 rounded-xl border border-teal-100 flex gap-3 items-start">
                   <Info className="w-5 h-5 text-teal-600 shrink-0 mt-0.5" />
                   <div className="text-xs text-teal-800 space-y-2">
-                    <p><strong>Dragonfly Memory Factor (0.7):</strong> Dragonfly compresses and optimizes memory better than competitors.</p>
-                    <p><strong>Max Replicas needed (2):</strong> Due to multi-threaded high availability, Dragonfly rarely requires more than 1 primary and 1 replica per shard.</p>
-                    <p><strong>Price Discount (25%):</strong> Dragonfly Cloud pricing per GiB is typically 25% lower than comparable managed competitor offerings.</p>
+                    <h3 className="text-sm font-bold text-teal-900 mb-2">Cost savings are compound result of:</h3>
+                    <p><strong>Dragonfly Memory Efficiency:</strong> Dragonfly compresses and optimizes memory better than competitors, typically results in 30% savings.</p>
+                    <p><strong>Usable Memory Pricing:</strong> Dragonfly Cloud only charges for the actual usable memory you need, not the full provisioned instance size.</p>
+                    <p><strong>Dragonfly HW Utilization :</strong> Due to multi-threaded shared nothing architecture Dragonfly is able to fully utilize the hardware and rarely requires more than 1 primary and 1 replica per shard.</p>
+                    <p><strong>Price Discount:</strong> Dragonfly Cloud pricing per GiB is typically 20% lower than comparable managed competitor offerings.</p>
                   </div>
                 </div>
               </div>
@@ -255,11 +316,19 @@
                     
                     <div className="p-5 rounded-xl bg-slate-900 border border-slate-800 shadow-sm text-white">
                       <div className="text-sm text-slate-400 mb-1 flex items-center gap-2">
-                        <Zap className="w-4 h-4 text-teal-400" /> Dragonfly Provisioned
+                        <Zap className="w-4 h-4 text-teal-400" /> Dragonfly Billable
                       </div>
-                      <div className="text-3xl font-bold text-white">{dragonflyProvisionedGB} <span className="text-lg font-medium text-slate-400">GiB</span></div>
-                      <div className="text-xs text-slate-400 mt-2 flex items-center gap-1">
-                        <Server className="w-3 h-3" /> {numShards * Math.min(2, numNodesPerShard)} total nodes &times; {dragonflyInstanceSize} GiB/node
+                      <div className="text-3xl font-bold text-white">{dragonflyChargeGB.toFixed(1)} <span className="text-lg font-medium text-slate-400">GiB</span></div>
+                      <div className="text-xs text-slate-400 mt-2 flex flex-col gap-1">
+                        <span className="flex items-center gap-1">
+                          <Server className="w-3 h-3 shrink-0" /> 
+                          {optimalDragonflyShards * Math.min(2, numNodesPerShard)} total nodes &times; {dragonflyNodeSize} GiB/node
+                        </span>
+                        {optimalDragonflyShards < numShards && (
+                          <span className="text-teal-400 font-medium ml-4">
+                            ↳ Reduced from {numShards} to {optimalDragonflyShards} shard{optimalDragonflyShards > 1 ? 's' : ''}!
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -277,12 +346,12 @@
                     
                     <div>
                       <div className="flex justify-between text-xs font-medium text-teal-600 mb-1">
-                        <span>Dragonfly Cloud ({dragonflyProvisionedGB} GiB)</span>
+                        <span>Dragonfly Cloud ({dragonflyChargeGB.toFixed(1)} GiB)</span>
                       </div>
                       <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden">
                         <div 
                           className="bg-teal-400 h-full rounded-full transition-all duration-500 ease-out relative"
-                          style={{ width: `${(dragonflyProvisionedGB / competitorProvisionedGiB) * 100}%` }}
+                          style={{ width: `${(dragonflyChargeGB / competitorProvisionedGiB) * 100}%` }}
                         ></div>
                       </div>
                     </div>
@@ -301,8 +370,12 @@
                         {savingsPercent.toFixed(1)}%
                       </div>
                     </div>
-                    <div className="text-right">
-                      <button className="bg-white text-teal-700 hover:bg-teal-50 transition-colors px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1 shadow-sm">
+                    <div className="flex flex-col sm:flex-row items-stretch gap-3 w-full sm:w-auto mt-2 sm:mt-0">
+                      <button className="flex flex-col items-center justify-center px-4 py-2 rounded-lg border border-teal-400/40 bg-teal-800/20 hover:bg-teal-800/40 transition-colors text-white text-center">
+                        <span className="text-[11px] text-teal-100/90 font-medium">Don't take our word for it</span>
+                        <span className="text-sm font-bold mt-0.5">Get a Subsidized POC</span>
+                      </button>
+                      <button className="bg-white text-teal-700 hover:bg-teal-50 transition-colors px-6 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-1 shadow-sm">
                         Start Saving <ChevronRight className="w-4 h-4" />
                       </button>
                     </div>
