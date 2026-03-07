@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dragonfly Cloud Cost Saving Simulator</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- React & ReactDOM -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  
+  <!-- Babel for in-browser JSX compilation -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-slate-50">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState } = React;
+
+    // --- Inline SVG Icons (Replacing lucide-react) ---
+    const IconProps = {
+      xmlns: "http://www.w3.org/2000/svg",
+      width: "24",
+      height: "24",
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      strokeWidth: "2",
+      strokeLinecap: "round",
+      strokeLinejoin: "round"
+    };
+
+    const Calculator = ({ className }) => (
+      <svg {...IconProps} className={className}>
+        <rect x="4" y="2" width="16" height="20" rx="2" ry="2"/>
+        <line x1="8" y1="6" x2="16" y2="6"/>
+        <line x1="16" y1="14" x2="16" y2="18"/>
+        <path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/>
+        <path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/>
+      </svg>
+    );
+
+    const Server = ({ className }) => (
+      <svg {...IconProps} className={className}>
+        <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
+        <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
+        <line x1="6" y1="6" x2="6.01" y2="6"/>
+        <line x1="6" y1="18" x2="6.01" y2="18"/>
+      </svg>
+    );
+
+    const Database = ({ className }) => (
+      <svg {...IconProps} className={className}>
+        <ellipse cx="12" cy="5" rx="9" ry="3"/>
+        <path d="M3 5V19A9 3 0 0 0 21 19V5"/>
+        <path d="M3 12A9 3 0 0 0 21 12"/>
+      </svg>
+    );
+
+    const Zap = ({ className, fill }) => (
+      <svg {...IconProps} className={className} fill={fill || "none"}>
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+      </svg>
+    );
+
+    const TrendingDown = ({ className }) => (
+      <svg {...IconProps} className={className}>
+        <polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/>
+        <polyline points="17 18 23 18 23 12"/>
+      </svg>
+    );
+
+    const Info = ({ className }) => (
+      <svg {...IconProps} className={className}>
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="16" x2="12" y2="12"/>
+        <line x1="12" y1="8" x2="12.01" y2="8"/>
+      </svg>
+    );
+
+    const ChevronRight = ({ className }) => (
+      <svg {...IconProps} className={className}>
+        <polyline points="9 18 15 12 9 6"/>
+      </svg>
+    );
+
+    // --- Core Logic ---
+    const getNextPowerOf2 = (val) => {
+      if (val <= 0) return 1;
+      return Math.pow(2, Math.ceil(Math.log2(val)));
+    };
+
+    function SimulatorApp() {
+      // Input States
+      const [numShards, setNumShards] = useState(3);
+      const [numNodesPerShard, setNumNodesPerShard] = useState(3);
+      const [maxMemory, setMaxMemory] = useState('13.07');
+      const [peakMemory, setPeakMemory] = useState('10.5');
+      const [memoryUtil, setMemoryUtil] = useState(0.95);
+
+      // Constants
+      const DRAGONFLY_MEMORY_FACTOR = 0.7;
+      const DISCOUNT_RATE = 0.25;
+
+      // Parsed Values
+      const parsedMaxMemory = parseFloat(maxMemory) || 0;
+      const parsedPeakMemory = Math.min(parseFloat(peakMemory) || 0, parsedMaxMemory);
+
+      // Competitor Calculations
+      const competitorInstanceSize = getNextPowerOf2(parsedMaxMemory);
+      const competitorProvisionedGiB = competitorInstanceSize * numShards * numNodesPerShard;
+
+      // Dragonfly Calculations
+      const rawDragonflyRequired = parsedPeakMemory * DRAGONFLY_MEMORY_FACTOR * (1 / memoryUtil);
+      const dragonflyRequiredMemory = getNextPowerOf2(rawDragonflyRequired);
+      const dragonflyInstanceSize = getNextPowerOf2(dragonflyRequiredMemory);
+      const dragonflyProvisionedGB = dragonflyInstanceSize * numShards * Math.min(2, numNodesPerShard);
+
+      // Savings Calculation
+      const dragonflyEquivalentCostGiB = dragonflyProvisionedGB * (1 - DISCOUNT_RATE);
+      const savingsFraction = competitorProvisionedGiB > 0 ? 1 - (dragonflyEquivalentCostGiB / competitorProvisionedGiB) : 0;
+      const savingsPercent = Math.max(0, savingsFraction * 100);
+
+      return (
+        <div className="min-h-screen p-4 md:p-8 font-sans text-slate-800 flex items-center justify-center">
+          <div className="max-w-5xl w-full bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-100">
+            
+            {/* Header */}
+            <div className="bg-slate-900 text-white p-6 md:p-8">
+              <div className="flex items-center gap-3 mb-2">
+                <Zap className="w-8 h-8 text-teal-400" fill="currentColor" />
+                <h1 className="text-2xl md:text-3xl font-bold">Dragonfly Cloud Cost Saving Simulator</h1>
+              </div>
+              <p className="text-slate-400 max-w-2xl text-sm md:text-base">
+                Calculate your potential infrastructure savings by migrating from Redis/Valkey to Dragonfly Cloud. Dragonfly's vertical scaling and optimized memory footprint drastically reduce provisioned hardware.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12">
+              
+              {/* Left Column: Inputs */}
+              <div className="lg:col-span-5 p-6 md:p-8 bg-slate-50 border-r border-slate-100">
+                <div className="flex items-center gap-2 mb-6 text-slate-800 font-semibold">
+                  <Database className="w-5 h-5 text-slate-500" />
+                  <h2>Current Setup (Redis / Valkey)</h2>
+                </div>
+
+                <div className="space-y-6">
+                  {/* Num Shards */}
+                  <div>
+                    <div className="flex justify-between mb-1">
+                      <label className="text-sm font-medium text-slate-600">Number of Shards</label>
+                      <span className="text-sm font-bold text-slate-900">{numShards}</span>
+                    </div>
+                    <input 
+                      type="range" min="1" max="50" step="1"
+                      value={numShards} onChange={(e) => setNumShards(Number(e.target.value))}
+                      className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-900"
+                    />
+                  </div>
+
+                  {/* Nodes Per Shard */}
+                  <div>
+                    <div className="flex justify-between mb-1">
+                      <label className="text-sm font-medium text-slate-600">Nodes per Shard (Master + Replicas)</label>
+                      <span className="text-sm font-bold text-slate-900">{numNodesPerShard}</span>
+                    </div>
+                    <input 
+                      type="range" min="1" max="5" step="1"
+                      value={numNodesPerShard} onChange={(e) => setNumNodesPerShard(Number(e.target.value))}
+                      className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-900"
+                    />
+                  </div>
+
+                  {/* Target Memory Utilization */}
+                  <div>
+                    <div className="flex justify-between mb-1">
+                      <label className="text-sm font-medium text-slate-600">Target Memory Utilization</label>
+                      <span className="text-sm font-bold text-slate-900">{(memoryUtil * 100).toFixed(0)}%</span>
+                    </div>
+                    <input 
+                      type="range" min="0.5" max="1.0" step="0.01"
+                      value={memoryUtil} onChange={(e) => setMemoryUtil(Number(e.target.value))}
+                      className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-900"
+                    />
+                  </div>
+
+                  {/* Max Memory */}
+                  <div>
+                    <div className="flex justify-between mb-1">
+                      <label className="text-sm font-medium text-slate-600">Max Memory per Node (GiB)</label>
+                    </div>
+                    <div className="relative">
+                      <input 
+                        type="number" step="0.01" min="0"
+                        value={maxMemory} onChange={(e) => setMaxMemory(e.target.value)}
+                        className="w-full p-2 border border-slate-300 rounded-lg bg-white text-slate-900 focus:ring-2 focus:ring-teal-500 outline-none transition-shadow pr-12"
+                        placeholder="e.g. 13.07"
+                      />
+                      <span className="absolute right-3 top-2.5 text-slate-400 text-sm pointer-events-none">GiB</span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">From `info memory`</p>
+                  </div>
+
+                  {/* Peak Memory */}
+                  <div>
+                    <div className="flex justify-between mb-1">
+                      <label className="text-sm font-medium text-slate-600">Peak Memory per Node (GiB)</label>
+                    </div>
+                    <div className="relative">
+                      <input 
+                        type="number" step="0.01" min="0"
+                        value={peakMemory} onChange={(e) => setPeakMemory(e.target.value)}
+                        className="w-full p-2 border border-slate-300 rounded-lg bg-white text-slate-900 focus:ring-2 focus:ring-teal-500 outline-none transition-shadow pr-12"
+                        placeholder="e.g. 10.50"
+                      />
+                      <span className="absolute right-3 top-2.5 text-slate-400 text-sm pointer-events-none">GiB</span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">Used for calculations (capped at Max Memory)</p>
+                  </div>
+                </div>
+                
+                <div className="mt-8 p-4 bg-teal-50 rounded-xl border border-teal-100 flex gap-3 items-start">
+                  <Info className="w-5 h-5 text-teal-600 shrink-0 mt-0.5" />
+                  <div className="text-xs text-teal-800 space-y-2">
+                    <p><strong>Dragonfly Memory Factor (0.7):</strong> Dragonfly compresses and optimizes memory better than competitors.</p>
+                    <p><strong>Max Replicas needed (2):</strong> Due to multi-threaded high availability, Dragonfly rarely requires more than 1 primary and 1 replica per shard.</p>
+                    <p><strong>Price Discount (25%):</strong> Dragonfly Cloud pricing per GiB is typically 25% lower than comparable managed competitor offerings.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Results */}
+              <div className="lg:col-span-7 p-6 md:p-8 flex flex-col justify-between">
+                
+                <div>
+                  <div className="flex items-center gap-2 mb-6 text-slate-800 font-semibold">
+                    <Calculator className="w-5 h-5 text-slate-500" />
+                    <h2>Resource Comparison</h2>
+                  </div>
+
+                  {/* Stats Grid */}
+                  <div className="grid grid-cols-2 gap-4 mb-8">
+                    <div className="p-5 rounded-xl bg-white border border-slate-200 shadow-sm">
+                      <div className="text-sm text-slate-500 mb-1">Competitor Provisioned</div>
+                      <div className="text-3xl font-bold text-slate-900">{competitorProvisionedGiB} <span className="text-lg font-medium text-slate-500">GiB</span></div>
+                      <div className="text-xs text-slate-400 mt-2 flex items-center gap-1">
+                        <Server className="w-3 h-3" /> {numShards * numNodesPerShard} total nodes &times; {competitorInstanceSize} GiB/node
+                      </div>
+                    </div>
+                    
+                    <div className="p-5 rounded-xl bg-slate-900 border border-slate-800 shadow-sm text-white">
+                      <div className="text-sm text-slate-400 mb-1 flex items-center gap-2">
+                        <Zap className="w-4 h-4 text-teal-400" /> Dragonfly Provisioned
+                      </div>
+                      <div className="text-3xl font-bold text-white">{dragonflyProvisionedGB} <span className="text-lg font-medium text-slate-400">GiB</span></div>
+                      <div className="text-xs text-slate-400 mt-2 flex items-center gap-1">
+                        <Server className="w-3 h-3" /> {numShards * Math.min(2, numNodesPerShard)} total nodes &times; {dragonflyInstanceSize} GiB/node
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Visual Bar Chart */}
+                  <div className="space-y-4 mb-8">
+                    <div>
+                      <div className="flex justify-between text-xs font-medium text-slate-500 mb-1">
+                        <span>Competitor ({competitorProvisionedGiB} GiB)</span>
+                      </div>
+                      <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden">
+                        <div className="bg-slate-300 h-full rounded-full w-full"></div>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <div className="flex justify-between text-xs font-medium text-teal-600 mb-1">
+                        <span>Dragonfly Cloud ({dragonflyProvisionedGB} GiB)</span>
+                      </div>
+                      <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden">
+                        <div 
+                          className="bg-teal-400 h-full rounded-full transition-all duration-500 ease-out relative"
+                          style={{ width: `${(dragonflyProvisionedGB / competitorProvisionedGiB) * 100}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Total Savings Highlight */}
+                <div className="bg-gradient-to-br from-teal-500 to-emerald-600 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden mt-8 lg:mt-0">
+                  <div className="absolute -right-4 -top-4 opacity-10">
+                    <TrendingDown className="w-32 h-32" />
+                  </div>
+                  <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div>
+                      <p className="text-teal-50 font-medium mb-1 text-sm md:text-base">Total Cost Savings</p>
+                      <div className="text-4xl md:text-5xl font-extrabold tracking-tight">
+                        {savingsPercent.toFixed(1)}%
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <button className="bg-white text-teal-700 hover:bg-teal-50 transition-colors px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-1 shadow-sm">
+                        Start Saving <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<SimulatorApp />);
+  </script>
+</body>
+</html>
