@@ -8,6 +8,27 @@
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   
+  <!-- Custom Tailwind Config for Dragonfly Dark Branding -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            df: {
+              bg: '#0a0a0f',          // Deepest background
+              card: '#12121a',        // Main card backgrounds
+              cardhover: '#1a1a24',   // Lighter card for nested elements
+              border: '#22222f',      // Subtle dark borders
+              green: '#00e599',       // Official Dragonfly Green (for checkmarks/success)
+              purple: '#9333ea',      // Primary purple
+              fuchsia: '#d946ef'      // Secondary gradient color
+            }
+          }
+        }
+      }
+    }
+  </script>
+
   <!-- React & ReactDOM -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -15,13 +36,13 @@
   <!-- Babel for in-browser JSX compilation -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
-<body class="bg-slate-50">
+<body class="bg-df-bg text-slate-200">
   <div id="root"></div>
 
   <script type="text/babel">
     const { useState } = React;
 
-    // --- Inline SVG Icons (Replacing lucide-react) ---
+    // --- Inline SVG Icons ---
     const IconProps = {
       xmlns: "http://www.w3.org/2000/svg",
       width: "24",
@@ -88,6 +109,12 @@
       </svg>
     );
 
+    const Check = ({ className }) => (
+      <svg {...IconProps} className={className}>
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+    );
+
     // --- Core Logic ---
     const getNextPowerOf2 = (val) => {
       if (val <= 0) return 1;
@@ -114,33 +141,35 @@
       const competitorInstanceSize = getNextPowerOf2(parsedMaxMemory);
       const competitorProvisionedGiB = competitorInstanceSize * numShards * numNodesPerShard;
 
-      // Dragonfly Calculations - Shard Consolidation & Discrete Node Sizes
+      // Dragonfly Calculations
       const rawRequiredPerShard = parsedPeakMemory * DRAGONFLY_MEMORY_FACTOR * (1 / memoryUtil);
-      const totalRawRequired = rawRequiredPerShard * numShards; // Total usable memory (masters only)
+      const totalRawRequired = rawRequiredPerShard * numShards;
       
-      // Only allow > 100GB nodes if total usable memory (masters only) is > 2000GB
-      const availableSizes = [6.25, 12.5, 25, 50, 100, 200].filter(size => size <= 100 || totalRawRequired > 2000);
+      const availableSizes = [6.25, 12.5, 25, 50, 100, 200].filter(size => {
+        return size <= 100 || totalRawRequired > 2000 || (Math.ceil(totalRawRequired / 100) > numShards);
+      });
       
-      // 1. Find the absolute minimum possible billable GB across all configurations
       let minBillable = Infinity;
       availableSizes.forEach(size => {
-        const proposedShards = Math.ceil(totalRawRequired / size);
+        let proposedShards = Math.ceil(totalRawRequired / size);
+        if (proposedShards > numShards) proposedShards = numShards;
+        if (size * proposedShards < totalRawRequired && size !== availableSizes[availableSizes.length - 1]) return;
+
         const billableGB = proposedShards * size * Math.min(2, numNodesPerShard);
         if (billableGB < minBillable) {
           minBillable = billableGB;
         }
       });
 
-      // 2. Prefer fewer shards (larger nodes) even if it costs slightly more memory (up to 15% tolerance)
       let bestScenario = null;
-      const TOLERANCE = 1.15;
-
       availableSizes.forEach(size => {
-        const proposedShards = Math.ceil(totalRawRequired / size);
-        const billableGB = proposedShards * size * Math.min(2, numNodesPerShard);
+        let proposedShards = Math.ceil(totalRawRequired / size);
+        if (proposedShards > numShards) proposedShards = numShards;
+        if (size * proposedShards < totalRawRequired && size !== availableSizes[availableSizes.length - 1]) return;
 
-        if (billableGB <= minBillable * TOLERANCE) {
-          if (!bestScenario || proposedShards < bestScenario.shards || (proposedShards === bestScenario.shards && billableGB < bestScenario.billableGB)) {
+        const billableGB = proposedShards * size * Math.min(2, numNodesPerShard);
+        if (billableGB === minBillable) {
+          if (!bestScenario || proposedShards < bestScenario.shards) {
             bestScenario = { size, shards: proposedShards, billableGB };
           }
         }
@@ -155,202 +184,208 @@
       const savingsFraction = competitorProvisionedGiB > 0 ? 1 - (dragonflyEquivalentCostGiB / competitorProvisionedGiB) : 0;
       const savingsPercent = Math.max(0, savingsFraction * 100);
 
-      // --- Debugging / Intermediate Calculations Log ---
-      console.groupCollapsed('Dragonfly Simulator Intermediate Calculations');
-      console.log('1. Parsed Inputs:', { maxMemory: parsedMaxMemory, peakMemory: parsedPeakMemory, memoryUtil });
-      console.log('2. Competitor Setup:', { 
-        competitorInstanceSize, 
-        competitorProvisionedGiB: `${competitorInstanceSize} GiB/node * ${numShards} shards * ${numNodesPerShard} nodes = ${competitorProvisionedGiB} GiB` 
-      });
-      console.log('3. Dragonfly Raw Memory Needed:', { 
-        rawRequiredPerShard, 
-        totalRawRequired: `${rawRequiredPerShard} GiB * ${numShards} shards = ${totalRawRequired} GiB (masters only)` 
-      });
-      console.log('4. Available Node Sizes:', availableSizes);
-      console.log('5. Minimum Possible Billable GB:', minBillable);
-      console.log(`6. Scenario Evaluation (15% Tolerance limit = ${minBillable * TOLERANCE}):`);
-      availableSizes.forEach(size => {
-        const proposedShards = Math.ceil(totalRawRequired / size);
-        const billableGB = proposedShards * size * Math.min(2, numNodesPerShard);
-        const isWithinTolerance = billableGB <= minBillable * TOLERANCE;
-        console.log(`   - Size: ${size}GB -> ${proposedShards} shards | Billable: ${billableGB}GB | Within Tolerance? ${isWithinTolerance}`);
-      });
-      console.log('7. Selected Best Scenario:', bestScenario);
-      console.log('8. Cost Savings Math:', {
-        dragonflyChargeGB,
-        dragonflyEquivalentCostGiB,
-        savingsFraction,
-        savingsPercent: savingsPercent.toFixed(2) + '%'
-      });
-      console.groupEnd();
-
       return (
-        <div className="min-h-screen p-4 md:p-8 font-sans text-slate-800 flex items-center justify-center">
-          <div className="max-w-5xl w-full bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-100">
+        <div className="min-h-screen p-4 md:p-8 font-sans flex items-center justify-center selection:bg-purple-500/30 selection:text-white">
+          <div className="max-w-5xl w-full bg-df-card rounded-2xl shadow-2xl shadow-purple-900/10 overflow-hidden border border-df-border">
             
             {/* Header */}
-            <div className="bg-slate-900 text-white p-6 md:p-8">
-              <div className="flex items-center gap-3 mb-2">
-                <Zap className="w-8 h-8 text-teal-400" fill="currentColor" />
-                <h1 className="text-2xl md:text-3xl font-bold">Dragonfly Cloud Cost Saving Simulator</h1>
+            <div className="bg-[#181824] border-b border-df-border text-white p-6 md:p-8 relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#7b3fe4] to-[#d946ef]"></div>
+              <div className="flex items-center gap-3 mb-2 relative z-10">
+                <Zap className="w-8 h-8 text-[#c084fc]" fill="currentColor" />
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Dragonfly Cloud Cost Saving Simulator</h1>
               </div>
-              <p className="text-slate-400 max-w-2xl text-sm md:text-base">
-                Calculate your potential total cost savings by migrating from Redis/Valkey to Dragonfly Cloud.
+              <p className="text-slate-400 max-w-2xl text-sm md:text-base leading-relaxed relative z-10">
+                Calculate your potential total cost savings by migrating from Redis/Valkey to Dragonfly Cloud. Dragonfly's vertical scaling and optimized memory footprint drastically reduce provisioned hardware.
               </p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12">
               
               {/* Left Column: Inputs */}
-              <div className="lg:col-span-5 p-6 md:p-8 bg-slate-50 border-r border-slate-100">
-                <div className="flex items-center gap-2 mb-6 text-slate-800 font-semibold">
-                  <Database className="w-5 h-5 text-slate-500" />
+              <div className="lg:col-span-5 p-6 md:p-8 bg-df-card border-r border-df-border">
+                <div className="flex items-center gap-2 mb-8 text-white font-bold tracking-tight">
+                  <Database className="w-5 h-5 text-slate-400" />
                   <h2>Current Setup (Redis / Valkey)</h2>
                 </div>
 
-                <div className="space-y-6">
+                <div className="space-y-8">
                   {/* Num Shards */}
-                  <div>
-                    <div className="flex justify-between mb-1">
-                      <label className="text-sm font-medium text-slate-600">Number of Shards</label>
-                      <span className="text-sm font-bold text-slate-900">{numShards}</span>
+                  <div className="bg-df-cardhover p-4 rounded-xl border border-df-border shadow-sm">
+                    <div className="flex justify-between items-center mb-4">
+                      <label className="text-sm font-semibold text-slate-300">Number of Shards</label>
+                      <input 
+                        type="number" min="1" max="50"
+                        value={numShards} 
+                        onChange={(e) => setNumShards(Number(e.target.value))}
+                        onBlur={(e) => setNumShards(Math.max(1, Math.min(50, Number(e.target.value))))}
+                        className="w-16 px-2 py-1 text-right text-sm font-bold text-white bg-df-bg border border-df-border rounded-md focus:ring-2 focus:ring-df-purple outline-none transition-all"
+                      />
                     </div>
                     <input 
                       type="range" min="1" max="50" step="1"
                       value={numShards} onChange={(e) => setNumShards(Number(e.target.value))}
-                      className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-900"
+                      className="w-full h-2 bg-df-border rounded-lg appearance-none cursor-pointer accent-df-purple"
                     />
+                    <div className="flex justify-between text-[11px] font-medium text-slate-500 mt-2 px-0.5">
+                      {[1, 10, 20, 30, 40, 50].map(val => (
+                        <span key={val} className="cursor-pointer hover:text-white hover:font-bold transition-all" onClick={() => setNumShards(val)}>{val}</span>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Nodes Per Shard */}
-                  <div>
-                    <div className="flex justify-between mb-1">
-                      <label className="text-sm font-medium text-slate-600">Nodes per Shard (Master + Replicas)</label>
-                      <span className="text-sm font-bold text-slate-900">{numNodesPerShard}</span>
+                  <div className="bg-df-cardhover p-4 rounded-xl border border-df-border shadow-sm">
+                    <div className="flex justify-between items-center mb-4">
+                      <label className="text-sm font-semibold text-slate-300">Nodes per Shard <span className="text-xs font-normal text-slate-500 block sm:inline mt-0.5 sm:mt-0 sm:ml-1">(Master + Replicas)</span></label>
+                      <span className="text-sm font-bold text-white bg-df-bg px-3 py-1 rounded-md border border-df-border">{numNodesPerShard}</span>
                     </div>
                     <input 
                       type="range" min="1" max="5" step="1"
                       value={numNodesPerShard} onChange={(e) => setNumNodesPerShard(Number(e.target.value))}
-                      className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-900"
+                      className="w-full h-2 bg-df-border rounded-lg appearance-none cursor-pointer accent-df-purple"
                     />
+                    <div className="flex justify-between text-[11px] font-medium text-slate-500 mt-2 px-0.5">
+                      {[1, 2, 3, 4, 5].map(val => (
+                        <span key={val} className="cursor-pointer hover:text-white hover:font-bold transition-all" onClick={() => setNumNodesPerShard(val)}>{val}</span>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Target Memory Utilization */}
                   <div>
-                    <div className="flex justify-between mb-1">
-                      <label className="text-sm font-medium text-slate-600">Target Memory Utilization</label>
-                      <span className="text-sm font-bold text-slate-900">{(memoryUtil * 100).toFixed(0)}%</span>
+                    <div className="flex justify-between items-center mb-3">
+                      <label className="text-sm font-semibold text-slate-300">Target Memory Utilization</label>
+                      <span className="text-sm font-bold text-white">{(memoryUtil * 100).toFixed(0)}%</span>
                     </div>
                     <input 
                       type="range" min="0.5" max="1.0" step="0.01"
                       value={memoryUtil} onChange={(e) => setMemoryUtil(Number(e.target.value))}
-                      className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-900"
+                      className="w-full h-2 bg-df-border rounded-lg appearance-none cursor-pointer accent-df-purple"
                     />
+                    <div className="flex justify-between text-[11px] font-medium text-slate-500 mt-2 px-0.5">
+                      {[50, 60, 70, 80, 90, 100].map(val => (
+                        <span key={val} className="cursor-pointer hover:text-white hover:font-bold transition-all" onClick={() => setMemoryUtil(val/100)}>{val}%</span>
+                      ))}
+                    </div>
                   </div>
 
-                  {/* Max Memory */}
                   <div>
-                    <div className="flex justify-between mb-1">
-                      <label className="text-sm font-medium text-slate-600">Max Memory per Node (GiB)</label>
-                    </div>
-                    <div className="relative">
-                      <input 
-                        type="number" step="0.01" min="0"
-                        value={maxMemory} onChange={(e) => setMaxMemory(e.target.value)}
-                        className="w-full p-2 border border-slate-300 rounded-lg bg-white text-slate-900 focus:ring-2 focus:ring-teal-500 outline-none transition-shadow pr-12"
-                        placeholder="e.g. 26.32"
-                      />
-                      <span className="absolute right-3 top-2.5 text-slate-400 text-sm pointer-events-none">GiB</span>
-                    </div>
-                    <p className="text-xs text-slate-400 mt-1">From `info memory`</p>
-                  </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Max Memory */}
+                      <div>
+                        <label className="text-sm font-semibold text-slate-300 block mb-2">Max Memory (GiB)</label>
+                        <div className="relative">
+                          <input 
+                            type="number" step="0.01" min="0"
+                            value={maxMemory} onChange={(e) => setMaxMemory(e.target.value)}
+                            className="w-full p-2.5 border border-df-border rounded-lg bg-df-cardhover text-white font-medium focus:ring-2 focus:ring-df-purple focus:border-df-purple outline-none transition-all pr-12"
+                            placeholder="e.g. 26.32"
+                          />
+                          <span className="absolute right-3 top-3 text-slate-500 text-sm font-medium pointer-events-none">GiB</span>
+                        </div>
+                      </div>
 
-                  {/* Peak Memory */}
-                  <div>
-                    <div className="flex justify-between mb-1">
-                      <label className="text-sm font-medium text-slate-600">Peak Memory per Node (GiB)</label>
+                      {/* Peak Memory */}
+                      <div>
+                        <label className="text-sm font-semibold text-slate-300 block mb-2">Peak Memory (GiB)</label>
+                        <div className="relative">
+                          <input 
+                            type="number" step="0.01" min="0"
+                            value={peakMemory} onChange={(e) => setPeakMemory(e.target.value)}
+                            className="w-full p-2.5 border border-df-border rounded-lg bg-df-cardhover text-white font-medium focus:ring-2 focus:ring-df-purple focus:border-df-purple outline-none transition-all pr-12"
+                            placeholder="e.g. 24.70"
+                          />
+                          <span className="absolute right-3 top-3 text-slate-500 text-sm font-medium pointer-events-none">GiB</span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="relative">
-                      <input 
-                        type="number" step="0.01" min="0"
-                        value={peakMemory} onChange={(e) => setPeakMemory(e.target.value)}
-                        className="w-full p-2 border border-slate-300 rounded-lg bg-white text-slate-900 focus:ring-2 focus:ring-teal-500 outline-none transition-shadow pr-12"
-                        placeholder="e.g. 24.70"
-                      />
-                      <span className="absolute right-3 top-2.5 text-slate-400 text-sm pointer-events-none">GiB</span>
+                    
+                    {/* Command Clarification Helper */}
+                    <div className="mt-3 flex items-start gap-1.5 text-[11px] sm:text-xs text-slate-400">
+                      <Info className="w-3.5 h-3.5 text-purple-400 shrink-0 mt-0.5" />
+                      <p>
+                        Run <code className="text-purple-300 font-mono bg-df-bg px-1 py-0.5 rounded border border-df-border">redis-cli info memory</code> on a <strong className="text-slate-300 font-semibold">master node</strong> to find these values.
+                      </p>
                     </div>
-                    <p className="text-xs text-slate-400 mt-1">Used for calculations (capped at Max Memory)</p>
                   </div>
                 </div>
                 
-                <div className="mt-8 p-4 bg-teal-50 rounded-xl border border-teal-100 flex gap-3 items-start">
-                  <Info className="w-5 h-5 text-teal-600 shrink-0 mt-0.5" />
-                  <div className="text-xs text-teal-800 space-y-2">
-                    <h3 className="text-sm font-bold text-teal-900 mb-2">Cost savings are compound result of:</h3>
-                    <p><strong>Dragonfly Memory Efficiency:</strong> Dragonfly compresses and optimizes memory better than competitors, typically results in 30% savings.</p>
-                    <p><strong>Usable Memory Pricing:</strong> Dragonfly Cloud only charges for the actual usable memory you need, not the full provisioned instance size.</p>
-                    <p><strong>Dragonfly HW Utilization :</strong> Due to multi-threaded shared nothing architecture Dragonfly is able to fully utilize the hardware and rarely requires more than 1 primary and 1 replica per shard.</p>
-                    <p><strong>Price Discount:</strong> Dragonfly Cloud pricing per GiB is typically 20% lower than comparable managed competitor offerings.</p>
+                <div className="mt-8 p-5 bg-[#201533] rounded-xl border border-[#3b2d59] flex gap-3 items-start">
+                  <Info className="w-5 h-5 text-purple-400 shrink-0 mt-0.5" />
+                  <div className="text-xs text-slate-400 space-y-2.5">
+                    <h3 className="text-sm font-bold text-purple-200 mb-1">Cost savings are the compound result of:</h3>
+                    <p><strong className="text-slate-200">Dragonfly Memory Efficiency:</strong> Dragonfly compresses and optimizes memory better than competitors, typically resulting in 30% savings.</p>
+                    <p><strong className="text-slate-200">Usable Memory Pricing:</strong> Dragonfly Cloud only charges for the actual usable memory you need, not the full provisioned instance size.</p>
+                    <p><strong className="text-slate-200">Dragonfly HW Utilization:</strong> Due to a multi-threaded, shared-nothing architecture, Dragonfly is able to fully utilize the hardware and rarely requires more than 1 primary and 1 replica per shard.</p>
+                    <p><strong className="text-slate-200">Price Discount:</strong> Dragonfly Cloud pricing per GiB is typically 20% lower than comparable managed competitor offerings.</p>
                   </div>
                 </div>
               </div>
 
               {/* Right Column: Results */}
-              <div className="lg:col-span-7 p-6 md:p-8 flex flex-col justify-between">
+              <div className="lg:col-span-7 p-6 md:p-8 flex flex-col justify-between bg-df-card">
                 
                 <div>
-                  <div className="flex items-center gap-2 mb-6 text-slate-800 font-semibold">
-                    <Calculator className="w-5 h-5 text-slate-500" />
+                  <div className="flex items-center gap-2 mb-6 text-white font-bold tracking-tight">
+                    <Calculator className="w-5 h-5 text-slate-400" />
                     <h2>Resource Comparison</h2>
                   </div>
 
                   {/* Stats Grid */}
                   <div className="grid grid-cols-2 gap-4 mb-8">
-                    <div className="p-5 rounded-xl bg-white border border-slate-200 shadow-sm">
-                      <div className="text-sm text-slate-500 mb-1">Competitor Provisioned</div>
-                      <div className="text-3xl font-bold text-slate-900">{competitorProvisionedGiB} <span className="text-lg font-medium text-slate-500">GiB</span></div>
-                      <div className="text-xs text-slate-400 mt-2 flex items-center gap-1">
-                        <Server className="w-3 h-3" /> {numShards * numNodesPerShard} total nodes &times; {competitorInstanceSize} GiB/node
+                    <div className="p-5 rounded-xl bg-df-cardhover border border-df-border">
+                      <div className="text-sm font-medium text-slate-400 mb-1">Competitor Provisioned</div>
+                      <div className="text-3xl font-extrabold text-white">{competitorProvisionedGiB} <span className="text-lg font-semibold text-slate-500">GiB</span></div>
+                      <div className="text-xs text-slate-500 mt-2 flex items-center gap-1.5 font-medium">
+                        <Server className="w-3 h-3" /> {numShards * numNodesPerShard} nodes &times; {competitorInstanceSize} GiB
                       </div>
                     </div>
                     
-                    <div className="p-5 rounded-xl bg-slate-900 border border-slate-800 shadow-sm text-white">
-                      <div className="text-sm text-slate-400 mb-1 flex items-center gap-2">
-                        <Zap className="w-4 h-4 text-teal-400" /> Dragonfly Billable
-                      </div>
-                      <div className="text-3xl font-bold text-white">{dragonflyChargeGB.toFixed(1)} <span className="text-lg font-medium text-slate-400">GiB</span></div>
-                      <div className="text-xs text-slate-400 mt-2 flex flex-col gap-1">
-                        <span className="flex items-center gap-1">
-                          <Server className="w-3 h-3 shrink-0" /> 
-                          {optimalDragonflyShards * Math.min(2, numNodesPerShard)} total nodes &times; {dragonflyNodeSize} GiB/node
-                        </span>
-                        {optimalDragonflyShards < numShards && (
-                          <span className="text-teal-400 font-medium ml-4">
-                            ↳ Reduced from {numShards} to {optimalDragonflyShards} shard{optimalDragonflyShards > 1 ? 's' : ''}!
+                    <div className="p-5 rounded-xl bg-[#181524] border border-[#3b2d59] relative overflow-hidden shadow-lg shadow-purple-900/20">
+                      {/* Subtle purple glow effect */}
+                      <div className="absolute -top-10 -right-10 w-32 h-32 bg-purple-600/20 blur-3xl rounded-full"></div>
+                      
+                      <div className="relative z-10">
+                        <div className="text-sm font-medium text-slate-300 mb-1 flex items-center gap-2">
+                          <Zap className="w-4 h-4 text-[#c084fc]" fill="currentColor" /> Dragonfly Billable
+                        </div>
+                        <div className="text-3xl font-extrabold text-white">{dragonflyChargeGB.toFixed(1)} <span className="text-lg font-semibold text-slate-500">GiB</span></div>
+                        <div className="text-xs text-slate-400 mt-2 flex flex-col gap-1.5 font-medium">
+                          <span className="flex items-center gap-1.5 text-slate-300">
+                            <Server className="w-3 h-3 shrink-0" /> 
+                            {optimalDragonflyShards * Math.min(2, numNodesPerShard)} nodes &times; {dragonflyNodeSize} GiB
                           </span>
-                        )}
+                          {optimalDragonflyShards < numShards && (
+                            <span className="text-df-green font-semibold ml-4 flex items-center gap-1">
+                              <Check className="w-3 h-3" /> Reduced from {numShards} to {optimalDragonflyShards} shard{optimalDragonflyShards > 1 ? 's' : ''}!
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
 
                   {/* Visual Bar Chart */}
-                  <div className="space-y-4 mb-8">
+                  <div className="space-y-5 mb-8">
                     <div>
-                      <div className="flex justify-between text-xs font-medium text-slate-500 mb-1">
-                        <span>Competitor ({competitorProvisionedGiB} GiB)</span>
+                      <div className="flex justify-between text-xs font-bold text-slate-400 mb-1.5 tracking-wide uppercase">
+                        <span>Competitor</span>
+                        <span>{competitorProvisionedGiB} GiB</span>
                       </div>
-                      <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden">
-                        <div className="bg-slate-300 h-full rounded-full w-full"></div>
+                      <div className="w-full bg-df-border rounded-full h-3 overflow-hidden">
+                        <div className="bg-slate-500 h-full rounded-full w-full"></div>
                       </div>
                     </div>
                     
                     <div>
-                      <div className="flex justify-between text-xs font-medium text-teal-600 mb-1">
-                        <span>Dragonfly Cloud ({dragonflyChargeGB.toFixed(1)} GiB)</span>
+                      <div className="flex justify-between text-xs font-bold text-purple-300 mb-1.5 tracking-wide uppercase">
+                        <span>Dragonfly Cloud</span>
+                        <span>{dragonflyChargeGB.toFixed(1)} GiB</span>
                       </div>
-                      <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden">
+                      <div className="w-full bg-df-border rounded-full h-3 overflow-hidden">
                         <div 
-                          className="bg-teal-400 h-full rounded-full transition-all duration-500 ease-out relative"
+                          className="bg-gradient-to-r from-[#7b3fe4] to-[#d946ef] h-full rounded-full transition-all duration-500 ease-out relative"
                           style={{ width: `${(dragonflyChargeGB / competitorProvisionedGiB) * 100}%` }}
                         ></div>
                       </div>
@@ -358,24 +393,24 @@
                   </div>
                 </div>
 
-                {/* Total Savings Highlight */}
-                <div className="bg-gradient-to-br from-teal-500 to-emerald-600 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden mt-8 lg:mt-0">
-                  <div className="absolute -right-4 -top-4 opacity-10">
-                    <TrendingDown className="w-32 h-32" />
+                {/* Total Savings Highlight - Dark Premium Look */}
+                <div className="bg-df-cardhover rounded-2xl p-6 md:p-8 text-white relative overflow-hidden mt-8 lg:mt-0 border border-df-border">
+                  <div className="absolute -right-8 -top-8 opacity-[0.05] text-purple-400">
+                    <TrendingDown className="w-48 h-48" />
                   </div>
-                  <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
                     <div>
-                      <p className="text-teal-50 font-medium mb-1 text-sm md:text-base">Total Cost Savings</p>
-                      <div className="text-4xl md:text-5xl font-extrabold tracking-tight">
-                        {savingsPercent.toFixed(1)}%
+                      <p className="text-slate-400 font-medium mb-1 text-sm tracking-wide uppercase">Total Cost Savings</p>
+                      <div className="text-5xl md:text-6xl font-extrabold tracking-tight text-white flex items-baseline gap-1">
+                        {savingsPercent.toFixed(1)}<span className="text-3xl text-purple-400">%</span>
                       </div>
                     </div>
                     <div className="flex flex-col sm:flex-row items-stretch gap-3 w-full sm:w-auto mt-2 sm:mt-0">
-                      <button className="flex flex-col items-center justify-center px-4 py-2 rounded-lg border border-teal-400/40 bg-teal-800/20 hover:bg-teal-800/40 transition-colors text-white text-center">
-                        <span className="text-[11px] text-teal-100/90 font-medium">Don't take our word for it</span>
-                        <span className="text-sm font-bold mt-0.5">Get a Subsidized POC</span>
+                      <button className="group flex flex-col items-center justify-center px-5 py-2.5 rounded-xl border border-df-border bg-df-bg hover:bg-df-border transition-all text-white text-center">
+                        <span className="text-[11px] text-slate-400 font-medium group-hover:text-slate-300 transition-colors">Don't take our word for it</span>
+                        <span className="text-sm font-bold mt-0.5 text-slate-300 group-hover:text-white transition-colors">Get a Subsidized POC</span>
                       </button>
-                      <button className="bg-white text-teal-700 hover:bg-teal-50 transition-colors px-6 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-1 shadow-sm">
+                      <button className="bg-gradient-to-r from-[#7b3fe4] to-[#d946ef] text-white hover:opacity-90 transition-opacity px-6 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-purple-900/40">
                         Start Saving <ChevronRight className="w-4 h-4" />
                       </button>
                     </div>
