@@ -115,6 +115,13 @@
       </svg>
     );
 
+    const X = ({ className }) => (
+      <svg {...IconProps} className={className}>
+        <line x1="18" y1="6" x2="6" y2="18" />
+        <line x1="6" y1="6" x2="18" y2="18" />
+      </svg>
+    );
+
     // --- Core Logic ---
     const getNextPowerOf2 = (val) => {
       if (val <= 0) return 1;
@@ -128,6 +135,9 @@
       const [maxMemory, setMaxMemory] = useState('26.32');
       const [peakMemory, setPeakMemory] = useState('24.7');
       const [memoryUtil, setMemoryUtil] = useState(0.95);
+      
+      // UI States
+      const [isModalOpen, setIsModalOpen] = useState(false);
 
       // Constants
       const DRAGONFLY_MEMORY_FACTOR = 0.7;
@@ -318,7 +328,7 @@
                     <p><strong className="text-slate-200">Dragonfly Memory Efficiency:</strong> Dragonfly compresses and optimizes memory better than competitors, typically resulting in 30% savings.</p>
                     <p><strong className="text-slate-200">Usable Memory Pricing:</strong> Dragonfly Cloud only charges for the actual usable memory you need, not the full provisioned instance size.</p>
                     <p><strong className="text-slate-200">Dragonfly HW Utilization:</strong> Due to a multi-threaded, shared-nothing architecture, Dragonfly is able to fully utilize the hardware and rarely requires more than 1 primary and 1 replica per shard.</p>
-                    <p><strong className="text-slate-200">Price Discount:</strong> Dragonfly Cloud pricing per GiB is typically 20% lower than comparable managed competitor offerings.</p>
+                    <p><strong className="text-slate-200">Price Discount:</strong> Dragonfly Cloud pricing is typically 20% lower than comparable managed competitor offerings per provisioned GB.</p>
                   </div>
                 </div>
               </div>
@@ -394,24 +404,23 @@
                 </div>
 
                 {/* Total Savings Highlight - Dark Premium Look */}
-                <div className="bg-df-cardhover rounded-2xl p-6 md:p-8 text-white relative overflow-hidden mt-8 lg:mt-0 border border-df-border">
-                  <div className="absolute -right-8 -top-8 opacity-[0.05] text-purple-400">
+                <div className="bg-df-cardhover rounded-2xl p-6 md:p-10 text-white relative overflow-hidden mt-8 lg:mt-0 border border-df-border">
+                  <div className="absolute -right-8 -top-8 opacity-[0.05] text-purple-400 pointer-events-none">
                     <TrendingDown className="w-48 h-48" />
                   </div>
-                  <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+                  <div className="relative z-10 flex flex-col items-center text-center gap-6">
                     <div>
-                      <p className="text-slate-400 font-medium mb-1 text-sm tracking-wide uppercase">Total Cost Savings</p>
-                      <div className="text-5xl md:text-6xl font-extrabold tracking-tight text-white flex items-baseline gap-1">
-                        {savingsPercent.toFixed(1)}<span className="text-3xl text-purple-400">%</span>
+                      <p className="text-slate-400 font-medium mb-2 text-sm tracking-wide uppercase">Total Cost Savings</p>
+                      <div className="text-6xl md:text-7xl font-extrabold tracking-tight text-white flex items-baseline justify-center gap-1">
+                        {savingsPercent.toFixed(1)}<span className="text-4xl text-purple-400">%</span>
                       </div>
                     </div>
-                    <div className="flex flex-col sm:flex-row items-stretch gap-3 w-full sm:w-auto mt-2 sm:mt-0">
-                      <button className="group flex flex-col items-center justify-center px-5 py-2.5 rounded-xl border border-df-border bg-df-bg hover:bg-df-border transition-all text-white text-center">
-                        <span className="text-[11px] text-slate-400 font-medium group-hover:text-slate-300 transition-colors">Don't take our word for it</span>
-                        <span className="text-sm font-bold mt-0.5 text-slate-300 group-hover:text-white transition-colors">Get a Subsidized POC</span>
-                      </button>
-                      <button className="bg-gradient-to-r from-[#7b3fe4] to-[#d946ef] text-white hover:opacity-90 transition-opacity px-6 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-purple-900/40">
-                        Start Saving <ChevronRight className="w-4 h-4" />
+                    <div className="flex flex-col items-stretch gap-3 w-full sm:max-w-sm mt-2">
+                      <button 
+                        onClick={() => setIsModalOpen(true)}
+                        className="bg-gradient-to-r from-[#7b3fe4] to-[#d946ef] text-white hover:opacity-90 transition-opacity px-8 py-3.5 rounded-xl text-base font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-purple-900/40"
+                      >
+                        Start Saving <ChevronRight className="w-5 h-5" />
                       </button>
                     </div>
                   </div>
@@ -420,6 +429,95 @@
               </div>
             </div>
           </div>
+
+          {/* Lead Generation Modal Overlay */}
+          {isModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+              <div 
+                className="bg-df-card border border-df-border rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden relative animate-in fade-in zoom-in duration-200"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Modal Header */}
+                <div className="p-6 border-b border-df-border flex justify-between items-center bg-[#181824] relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#7b3fe4] to-[#d946ef]"></div>
+                  <h2 className="text-xl font-bold text-white relative z-10">Start Your Savings Journey</h2>
+                  <button 
+                    onClick={() => setIsModalOpen(false)} 
+                    className="text-slate-400 hover:text-white transition-colors relative z-10"
+                    aria-label="Close"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+
+                {/* Form */}
+                <form 
+                  className="p-6 space-y-5" 
+                  onSubmit={(e) => { 
+                    e.preventDefault(); 
+                    alert('Thanks! A Dragonfly representative will contact you shortly.'); 
+                    setIsModalOpen(false); 
+                  }}
+                >
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-300 mb-1.5">First Name <span className="text-purple-400">*</span></label>
+                      <input 
+                        type="text" 
+                        required 
+                        className="w-full p-2.5 bg-df-bg border border-df-border rounded-lg text-white focus:ring-2 focus:ring-df-purple outline-none transition-shadow" 
+                        placeholder="Jane"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-300 mb-1.5">Last Name <span className="text-purple-400">*</span></label>
+                      <input 
+                        type="text" 
+                        required 
+                        className="w-full p-2.5 bg-df-bg border border-df-border rounded-lg text-white focus:ring-2 focus:ring-df-purple outline-none transition-shadow" 
+                        placeholder="Doe"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-300 mb-1.5">Work Email <span className="text-purple-400">*</span></label>
+                    <input 
+                      type="email" 
+                      required 
+                      className="w-full p-2.5 bg-df-bg border border-df-border rounded-lg text-white focus:ring-2 focus:ring-df-purple outline-none transition-shadow" 
+                      placeholder="jane@company.com"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-sm font-semibold text-slate-300">Detailed Analysis Data</label>
+                      <span className="text-xs text-slate-500">Optional</span>
+                    </div>
+                    <p className="text-xs text-slate-400 mb-2 leading-relaxed">
+                      Provide your <code className="text-purple-300 font-mono bg-df-bg px-1 py-0.5 rounded border border-df-border">redis-cli info all</code> output to help us provide a highly accurate, tailored cost saving analysis.
+                    </p>
+                    <textarea 
+                      rows="4" 
+                      className="w-full p-3 bg-df-bg border border-df-border rounded-lg text-slate-300 text-sm font-mono focus:ring-2 focus:ring-df-purple outline-none resize-y transition-shadow" 
+                      placeholder="# Server&#10;redis_version:7.0.0&#10;..."
+                    ></textarea>
+                  </div>
+
+                  <div className="pt-2">
+                    <button 
+                      type="submit" 
+                      className="w-full bg-gradient-to-r from-[#7b3fe4] to-[#d946ef] text-white hover:opacity-90 transition-opacity px-6 py-3.5 rounded-xl text-base font-bold shadow-lg shadow-purple-900/40"
+                    >
+                      Send me detailed analysis
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
         </div>
       );
     }
